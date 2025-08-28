@@ -1,0 +1,59 @@
+{
+  "key": "dailyTasks",
+  "data": {
+    "2025-08-28": [
+      {
+        "id": "1756370758104",
+        "title": "test",
+        "completed": false,
+        "timeSpent": 0,
+        "focusTime": 0,
+        "createdAt": "2025-08-28T08:45:53.173Z",
+        "subtasks": [],
+        "subtasksExpanded": false
+      },
+      {
+        "id": "1756370855490",
+        "title": "test1",
+        "completed": false,
+        "timeSpent": 0,
+        "focusTime": 0,
+        "createdAt": "2025-08-28T08:47:28.356Z",
+        "subtasks": [],
+        "subtasksExpanded": false
+      },
+      {
+        "id": "1756371581518",
+        "title": "test2",
+        "completed": false,
+        "timeSpent": 0,
+        "focusTime": 0,
+        "createdAt": "2025-08-28T08:59:20.205Z",
+        "subtasks": [],
+        "subtasksExpanded": false
+      },
+      {
+        "id": "1756372089991",
+        "title": "test4",
+        "completed": true,
+        "timeSpent": 0,
+        "focusTime": 0,
+        "createdAt": "2025-08-28T09:07:38.060Z",
+        "subtasks": [],
+        "subtasksExpanded": false
+      },
+      {
+        "id": "1756373228472",
+        "title": "aaa",
+        "completed": false,
+        "timeSpent": 0,
+        "focusTime": 0,
+        "createdAt": "2025-08-28T09:27:01.774Z",
+        "subtasks": [],
+        "subtasksExpanded": false
+      }
+    ]
+  },
+  "timestamp": "2025-08-28T09:40:05.812Z",
+  "userId": "priospace_user"
+}

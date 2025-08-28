@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  priospace:
+    build: .
+    ports:
+      - "3090:3000"
+    environment:
+      - NODE_ENV=production
+      - BACKUP_DIR=/app/data/backups
+      - NEXT_PUBLIC_ENABLE_SERVER_BACKUP=true
+    volumes:
+      # Data persistence using local directory (easy to access and backup)
+      - ./data:/app/data
+    restart: unless-stopped
+    networks:
+      - priospace-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+networks:
+  priospace-network:
+    driver: bridge

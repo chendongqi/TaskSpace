@@ -41,3 +41,7 @@ yarn-error.log*
 next-env.d.ts
 
 src-tauri/gen
+
+# Data directory (keep structure but ignore actual data)
+/data/backups/*
+!/data/backups/.gitkeep

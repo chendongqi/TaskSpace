@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  priospace:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3090:3000"
+    environment:
+      - NODE_ENV=development
+      - BACKUP_DIR=/app/data/backups
+      - NEXT_PUBLIC_ENABLE_SERVER_BACKUP=true
+    volumes:
+      # Mount source code for development hot reload
+      - ./app:/app/app
+      - ./components:/app/components
+      - ./lib:/app/lib
+      - ./utils:/app/utils
+      - ./public:/app/public
+      # Exclude node_modules
+      - /app/node_modules
+      # Data persistence using local directory
+      - ./data:/app/data
+    restart: unless-stopped
+    networks:
+      - priospace-network
+
+networks:
+  priospace-network:
+    driver: bridge

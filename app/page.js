@@ -16,6 +16,8 @@ import { TimerModal } from "@/components/timer-modal";
 import { SettingsModal } from "@/components/settings-modal";
 import { IntroScreen } from "@/components/intro-screen";
 import { WebRTCShareModal } from "@/components/webrtc-share-modal";
+import { dataStorage } from "@/lib/storage";
+import "@/lib/debug"; // 导入调试工具
 
 export default function Home() {
   const [darkMode, setDarkMode] = useState(false);
@@ -34,60 +36,86 @@ export default function Home() {
   const [showIntroScreen, setShowIntroScreen] = useState(true);
   const [parentTaskForSubtask, setParentTaskForSubtask] = useState(null);
   const [showWebRTCShare, setShowWebRTCShare] = useState(false);
+  const [isDataLoaded, setIsDataLoaded] = useState(false); // 防止初始化时触发备份
 
-  // Load data from localStorage on mount
+  // Load data from storage on mount
   useEffect(() => {
-    const savedDarkMode = localStorage.getItem("darkMode");
-    if (savedDarkMode) {
-      setDarkMode(JSON.parse(savedDarkMode));
-    }
+    const loadData = async () => {
+      try {
+        // 确保存储系统已初始化，并等待数据恢复完成
+        const restoredData = await dataStorage.initializeStorage();
+        
+        console.log('📥 Data restoration result:', restoredData);
+        
+        // 加载所有数据（包括恢复的数据）
+        const loadDataItem = (key, setter, processor = null) => {
+          let data = null;
+          
+          // 优先使用恢复的数据
+          if (restoredData && restoredData[key]) {
+            data = restoredData[key];
+            console.log(`📦 Using restored data for ${key}`);
+          } else {
+            // 否则从 localStorage 读取
+            data = dataStorage.getLocalData(key);
+          }
+          
+          if (data !== null && data !== undefined) {
+            if (processor) {
+              data = processor(data);
+            }
+            setter(data);
+          }
+        };
+        
+        // 加载各种数据
+        loadDataItem("darkMode", setDarkMode);
+        loadDataItem("theme", setTheme);
+        
+        loadDataItem("dailyTasks", setDailyTasks, (savedDailyTasks) => {
+          // Convert date strings back to Date objects and ensure all fields exist
+          const converted = {};
+          Object.keys(savedDailyTasks).forEach((dateKey) => {
+            converted[dateKey] = savedDailyTasks[dateKey].map((task) => {
+              // Ensure subtasks are properly structured
+              const processedSubtasks = (task.subtasks || []).map((subtask) => ({
+                ...subtask,
+                createdAt: new Date(subtask.createdAt || task.createdAt),
+                focusTime: subtask.focusTime || 0,
+                timeSpent: subtask.timeSpent || 0,
+                completed: !!subtask.completed,
+                parentTaskId: task.id,
+                subtasks: [], // Subtasks don't have their own subtasks
+              }));
 
-    const savedTheme = localStorage.getItem("theme");
-    if (savedTheme) {
-      setTheme(savedTheme);
-    }
-
-    const savedDailyTasks = localStorage.getItem("dailyTasks");
-    if (savedDailyTasks) {
-      const parsed = JSON.parse(savedDailyTasks);
-      // Convert date strings back to Date objects and ensure all fields exist
-      const converted = {};
-      Object.keys(parsed).forEach((dateKey) => {
-        converted[dateKey] = parsed[dateKey].map((task) => {
-          // Ensure subtasks are properly structured
-          const processedSubtasks = (task.subtasks || []).map((subtask) => ({
-            ...subtask,
-            createdAt: new Date(subtask.createdAt || task.createdAt),
-            focusTime: subtask.focusTime || 0,
-            timeSpent: subtask.timeSpent || 0,
-            completed: !!subtask.completed,
-            parentTaskId: task.id,
-            subtasks: [], // Subtasks don't have their own subtasks
-          }));
-
-          return {
-            ...task,
-            createdAt: new Date(task.createdAt),
-            focusTime: task.focusTime || 0,
-            timeSpent: task.timeSpent || 0,
-            completed: !!task.completed,
-            subtasks: processedSubtasks,
-            subtasksExpanded: task.subtasksExpanded || false,
-          };
+              return {
+                ...task,
+                createdAt: new Date(task.createdAt),
+                focusTime: task.focusTime || 0,
+                timeSpent: task.timeSpent || 0,
+                completed: !!task.completed,
+                subtasks: processedSubtasks,
+                subtasksExpanded: task.subtasksExpanded || false,
+              };
+            });
+          });
+          return converted;
         });
-      });
-      setDailyTasks(converted);
-    }
-
-    const savedCustomTags = localStorage.getItem("customTags");
-    if (savedCustomTags) {
-      setCustomTags(JSON.parse(savedCustomTags));
-    }
-
-    const savedHabits = localStorage.getItem("habits");
-    if (savedHabits) {
-      setHabits(JSON.parse(savedHabits));
-    }
+        
+        loadDataItem("customTags", setCustomTags);
+        loadDataItem("habits", setHabits);
+        
+        // 数据加载完成，允许备份
+        setIsDataLoaded(true);
+        console.log('✅ All data loaded successfully');
+      } catch (error) {
+        console.error('❌ Data loading failed:', error);
+        // 即使失败也要允许备份，防止应用卡住
+        setIsDataLoaded(true);
+      }
+    };
+    
+    loadData();
   }, []);
 
   // Apply theme classes to document
@@ -189,26 +217,36 @@ export default function Home() {
     showIntroScreen,
   ]);
 
-  // Save to localStorage whenever data changes
+  // Save to storage whenever data changes (only after initial load)
   useEffect(() => {
-    localStorage.setItem("darkMode", JSON.stringify(darkMode));
-  }, [darkMode]);
+    if (isDataLoaded) {
+      dataStorage.setLocalData("darkMode", darkMode);
+    }
+  }, [darkMode, isDataLoaded]);
 
   useEffect(() => {
-    localStorage.setItem("theme", theme);
-  }, [theme]);
+    if (isDataLoaded) {
+      dataStorage.setLocalData("theme", theme);
+    }
+  }, [theme, isDataLoaded]);
 
   useEffect(() => {
-    localStorage.setItem("dailyTasks", JSON.stringify(dailyTasks));
-  }, [dailyTasks]);
+    if (isDataLoaded) {
+      dataStorage.setLocalData("dailyTasks", dailyTasks);
+    }
+  }, [dailyTasks, isDataLoaded]);
 
   useEffect(() => {
-    localStorage.setItem("customTags", JSON.stringify(customTags));
-  }, [customTags]);
+    if (isDataLoaded) {
+      dataStorage.setLocalData("customTags", customTags);
+    }
+  }, [customTags, isDataLoaded]);
 
   useEffect(() => {
-    localStorage.setItem("habits", JSON.stringify(habits));
-  }, [habits]);
+    if (isDataLoaded) {
+      dataStorage.setLocalData("habits", habits);
+    }
+  }, [habits, isDataLoaded]);
 
   const getDateString = (date) => {
     const year = date.getFullYear();
