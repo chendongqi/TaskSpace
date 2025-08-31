@@ -52,6 +52,7 @@ export function TimerModal({
   const gainNodesRef = useRef({});
   const isInitializedRef = useRef(false);
   const completeAudioRef = useRef(null);
+  const [notificationPermission, setNotificationPermission] = useState("default");
 
   if (typeof window !== "undefined") {
     if (!completeAudioRef.current) {
@@ -66,6 +67,68 @@ export function TimerModal({
       completeAudioRef.current
         .play()
         .catch((e) => console.log("Complete sound play failed:", e));
+    }
+  };
+
+  // Request notification permission on component mount
+  useEffect(() => {
+    if (typeof window !== "undefined" && "Notification" in window) {
+      setNotificationPermission(Notification.permission);
+      
+      if (Notification.permission === "default") {
+        // Request permission when user first interacts with timer
+        const requestPermission = async () => {
+          try {
+            const permission = await Notification.requestPermission();
+            setNotificationPermission(permission);
+          } catch (error) {
+            console.log("Notification permission request failed:", error);
+          }
+        };
+        
+        // Request permission when timer starts for the first time
+        if (isRunning) {
+          requestPermission();
+        }
+      }
+    }
+  }, [isRunning]);
+
+  // Show desktop notification
+  const showDesktopNotification = (title, body, onClick = null) => {
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      return;
+    }
+
+    if (Notification.permission === "granted") {
+      try {
+        const notification = new Notification(title, {
+          body: body,
+          icon: "/logo.png",
+          badge: "/logo.png",
+          tag: "pomodoro-timer",
+          requireInteraction: false,
+          silent: false
+        });
+
+        // Handle notification click
+        if (onClick) {
+          notification.onclick = onClick;
+        } else {
+          notification.onclick = () => {
+            window.focus();
+            notification.close();
+          };
+        }
+
+        // Auto close after 8 seconds
+        setTimeout(() => {
+          notification.close();
+        }, 8000);
+
+      } catch (error) {
+        console.log("Failed to show notification:", error);
+      }
     }
   };
 
@@ -325,11 +388,33 @@ export function TimerModal({
   useEffect(() => {
     if (isRunning && timeLeft > 0) {
       const interval = setInterval(() => {
-        setTimeLeft((prev) => prev - 1);
+        setTimeLeft((prev) => {
+          // When timer reaches 0, show notification
+          if (prev === 1) {
+            // Timer just finished
+            setTimeout(() => {
+              const selectedTaskName = tasks.find(task => task.id === selectedTask)?.title;
+              
+              if (isBreak) {
+                showDesktopNotification(
+                  "☕ 休息时间结束！",
+                  "该回到工作状态了，继续专注吧～"
+                );
+              } else {
+                const taskInfo = selectedTaskName ? `任务"${selectedTaskName}"专注时间结束` : "专注时间结束";
+                showDesktopNotification(
+                  "🍅 番茄钟时间到了！",
+                  `${taskInfo}，该休息一下了～`
+                );
+              }
+            }, 100); // Small delay to ensure state is updated
+          }
+          return prev - 1;
+        });
       }, 1000);
       return () => clearInterval(interval);
     }
-  }, [isRunning, timeLeft]);
+  }, [isRunning, timeLeft, isBreak, selectedTask, tasks]);
 
   // Overtime counter effect
   useEffect(() => {
@@ -429,7 +514,18 @@ export function TimerModal({
     }
   };
 
-  const handleStart = () => {
+  const handleStart = async () => {
+    // Request notification permission if not already granted
+    if (typeof window !== "undefined" && "Notification" in window && 
+        Notification.permission === "default" && !isRunning) {
+      try {
+        const permission = await Notification.requestPermission();
+        setNotificationPermission(permission);
+      } catch (error) {
+        console.log("Notification permission request failed:", error);
+      }
+    }
+
     if (!isRunning && timeLeft > 0) {
       setSessionStartTime(timeLeft);
       setOvertimeSeconds(0);
@@ -617,6 +713,28 @@ export function TimerModal({
               </h2>
             </div>
             <div className="flex items-center gap-2">
+              {/* Notification Permission Status */}
+              {typeof window !== "undefined" && "Notification" in window && (
+                <div className="flex items-center gap-1 text-xs">
+                  {notificationPermission === "granted" ? (
+                    <div className="flex items-center gap-1 text-green-600 dark:text-green-400">
+                      <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                      <span className="font-medium">通知已启用</span>
+                    </div>
+                  ) : notificationPermission === "denied" ? (
+                    <div className="flex items-center gap-1 text-red-600 dark:text-red-400">
+                      <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                      <span className="font-medium">通知已禁用</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1 text-yellow-600 dark:text-yellow-400">
+                      <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
+                      <span className="font-medium">等待授权</span>
+                    </div>
+                  )}
+                </div>
+              )}
+              
               {/* Mute/Unmute Button */}
               <Button
                 variant="ghost"
