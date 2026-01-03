@@ -45,14 +45,14 @@ export function WeeklyCalendar({ selectedDate, onDateSelect }) {
         >
           <ChevronLeft className="h-4 w-4" />
         </Button>
-        <div className="flex gap-2 h-[76px]" ref={scrollRef}>
+        <div className="flex gap-1 h-[76px]" ref={scrollRef}>
           {weekDates.map((date, index) => (
             <motion.button
               key={date.toISOString()}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => onDateSelect(date)}
-              className={`flex-shrink-0 flex flex-col font-bold items-center p-2 rounded-lg min-w-[30px] sm:min-w-[50px] transition-colors ${
+              className={`flex-shrink-0 flex flex-col font-bold items-center p-1 rounded-lg min-w-[30px] sm:min-w-[35px] transition-colors ${
                 isSelected(date)
                   ? "border border-primary/50"
                   : isToday(date)

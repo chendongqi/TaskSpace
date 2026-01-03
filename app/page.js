@@ -6,7 +6,7 @@ import { DayNightCycle, AnimatedNumber } from "@/components/day-night-cycle";
 import { AnimatedYear } from "@/components/animated-year";
 import { WeeklyCalendar } from "@/components/weekly-calender";
 import { TaskList } from "@/components/task-list";
-import { Timer, Plus, BarChart3, Settings, CheckCircle, Target, TrendingUp } from "lucide-react";
+import { Timer, Plus, BarChart3, Settings, CheckCircle, Target, TrendingUp, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AddTaskModal } from "@/components/add-task-modal";
 import { TaskOptionsModal } from "@/components/task-options-modal";
@@ -18,6 +18,7 @@ import { IntroScreen } from "@/components/intro-screen";
 import { WebRTCShareModal } from "@/components/webrtc-share-modal";
 import { YearlyGoalsTracker } from "@/components/yearly-goals-tracker";
 import { QuarterlyGoalsTracker } from "@/components/quarterly-goals-tracker";
+import { WeeklyGoalsTracker } from "@/components/weekly-goals-tracker";
 import { dataStorage } from "@/lib/storage";
 import "@/lib/debug"; // 导入调试工具
 
@@ -29,10 +30,12 @@ export default function Home() {
   const [habits, setHabits] = useState([]);
   const [yearlyGoals, setYearlyGoals] = useState([]);
   const [quarterlyGoals, setQuarterlyGoals] = useState([]);
+  const [weeklyGoals, setWeeklyGoals] = useState([]);
   const [showTimer, setShowTimer] = useState(false);
   const [showHabits, setShowHabits] = useState(false);
   const [showYearlyGoals, setShowYearlyGoals] = useState(false);
   const [showQuarterlyGoals, setShowQuarterlyGoals] = useState(false);
+  const [showWeeklyGoals, setShowWeeklyGoals] = useState(false);
   const [showAddTask, setShowAddTask] = useState(false);
   const [showTaskOptions, setShowTaskOptions] = useState(false);
   const [showAddSubtask, setShowAddSubtask] = useState(false);
@@ -134,6 +137,19 @@ export default function Home() {
           }));
         });
         
+        loadDataItem("weeklyGoals", setWeeklyGoals, (savedGoals) => {
+          // Convert date strings back to Date objects
+          return (savedGoals || []).map((goal) => ({
+            ...goal,
+            createdAt: new Date(goal.createdAt),
+            progress: goal.progress || 0,
+            completed: !!goal.completed,
+            quarter: goal.quarter || 1,
+            week: goal.week || 1,
+            weight: goal.weight || undefined,
+          }));
+        });
+        
         // 数据加载完成，允许备份
         setIsDataLoaded(true);
         console.log('✅ All data loaded successfully');
@@ -187,6 +203,7 @@ export default function Home() {
         setShowHabits(false);
         setShowYearlyGoals(false);
         setShowQuarterlyGoals(false);
+        setShowWeeklyGoals(false);
         setShowTimer(false);
         setShowSettings(false);
         setShowTaskOptions(false);
@@ -199,6 +216,7 @@ export default function Home() {
         showHabits ||
         showYearlyGoals ||
         showQuarterlyGoals ||
+        showWeeklyGoals ||
         showTimer ||
         showSettings ||
         showTaskOptions ||
@@ -228,6 +246,10 @@ export default function Home() {
             event.preventDefault();
             setShowQuarterlyGoals(true);
             break;
+          case "w": // Ctrl/Cmd + W for Weekly Goals
+            event.preventDefault();
+            setShowWeeklyGoals(true);
+            break;
           case "c": // Ctrl/Cmd + C for Timer
             event.preventDefault();
             setShowTimer(true);
@@ -252,6 +274,7 @@ export default function Home() {
     showHabits,
     showYearlyGoals,
     showQuarterlyGoals,
+    showWeeklyGoals,
     showTimer,
     showSettings,
     showTaskOptions,
@@ -302,6 +325,77 @@ export default function Home() {
       dataStorage.setLocalData("quarterlyGoals", quarterlyGoals);
     }
   }, [quarterlyGoals, isDataLoaded]);
+
+  useEffect(() => {
+    if (isDataLoaded) {
+      dataStorage.setLocalData("weeklyGoals", weeklyGoals);
+    }
+  }, [weeklyGoals, isDataLoaded]);
+
+  // Calculate quarterly goal progress based on associated weekly goals
+  const calculateQuarterlyGoalProgress = (quarterlyGoalId) => {
+    const associatedWeeklyGoals = weeklyGoals.filter(
+      (wg) => wg.quarterlyGoalId === quarterlyGoalId
+    );
+
+    if (associatedWeeklyGoals.length === 0) {
+      return null; // No associated weekly goals, return null to indicate manual mode
+    }
+
+    if (associatedWeeklyGoals.length === 1) {
+      // Single weekly goal, use its progress directly
+      return associatedWeeklyGoals[0].progress || 0;
+    }
+
+    // Multiple weekly goals, calculate weighted average
+    const totalWeight = associatedWeeklyGoals.reduce(
+      (sum, wg) => sum + (wg.weight || 0),
+      0
+    );
+
+    if (totalWeight === 0) {
+      // All weights are 0, fallback to average
+      const avgProgress =
+        associatedWeeklyGoals.reduce(
+          (sum, wg) => sum + (wg.progress || 0),
+          0
+        ) / associatedWeeklyGoals.length;
+      return avgProgress;
+    }
+
+    // Calculate weighted average with normalization
+    const weightedSum = associatedWeeklyGoals.reduce((sum, wg) => {
+      const normalizedWeight = totalWeight > 0 ? (wg.weight || 0) / totalWeight : 0;
+      return sum + (wg.progress || 0) * normalizedWeight;
+    }, 0);
+
+    return Math.round(weightedSum * 100) / 100; // Round to 2 decimal places
+  };
+
+  // Update quarterly goals progress based on weekly goals
+  const updateQuarterlyGoalsProgress = () => {
+    setQuarterlyGoals((prevGoals) => {
+      return prevGoals.map((goal) => {
+        const calculatedProgress = calculateQuarterlyGoalProgress(goal.id);
+        
+        if (calculatedProgress === null) {
+          // No associated weekly goals, keep manual mode
+          return {
+            ...goal,
+            autoCalculated: false,
+          };
+        } else {
+          // Has associated weekly goals, use auto-calculated progress
+          return {
+            ...goal,
+            progress: calculatedProgress,
+            completed: calculatedProgress >= 100,
+            autoCalculated: true,
+          };
+        }
+      });
+    });
+  };
 
   // Calculate yearly goal progress based on associated quarterly goals
   const calculateYearlyGoalProgress = (yearlyGoalId) => {
@@ -416,6 +510,228 @@ export default function Home() {
       setTimeout(() => updateYearlyGoalsProgress(), 0);
     }
   };
+
+  // Weekly goal management functions
+  const addWeeklyGoal = (goalData) => {
+    const newGoal = {
+      id: goalData.id || Date.now().toString(),
+      title: goalData.title,
+      description: goalData.description || "",
+      year: parseInt(goalData.year),
+      quarter: parseInt(goalData.quarter),
+      week: parseInt(goalData.week),
+      completed: goalData.completed || false,
+      progress: goalData.progress || 0,
+      quarterlyGoalId: goalData.quarterlyGoalId && goalData.quarterlyGoalId !== "none" ? goalData.quarterlyGoalId : undefined,
+      weight: goalData.quarterlyGoalId && goalData.quarterlyGoalId !== "none" ? Math.max(0, Math.min(100, goalData.weight || 0)) : undefined,
+      tag: goalData.tag || undefined,
+      createdAt: goalData.createdAt || new Date(),
+    };
+    setWeeklyGoals((prevGoals) => {
+      const updatedGoals = [...prevGoals, newGoal];
+      
+      // Update quarterly goal progress if associated
+      if (newGoal.quarterlyGoalId) {
+        setTimeout(() => {
+          setQuarterlyGoals((prevQuarterlyGoals) => {
+            return prevQuarterlyGoals.map((goal) => {
+              if (goal.id !== newGoal.quarterlyGoalId) return goal;
+              
+              const associatedWeeklyGoals = updatedGoals.filter(
+                (wg) => wg.quarterlyGoalId === goal.id
+              );
+              
+              if (associatedWeeklyGoals.length === 0) {
+                return { ...goal, autoCalculated: false };
+              }
+              
+              // Calculate progress
+              let calculatedProgress = 0;
+              
+              if (associatedWeeklyGoals.length === 1) {
+                calculatedProgress = associatedWeeklyGoals[0].progress || 0;
+              } else {
+                const totalWeight = associatedWeeklyGoals.reduce(
+                  (sum, wg) => sum + (wg.weight || 0),
+                  0
+                );
+                
+                if (totalWeight === 0) {
+                  calculatedProgress =
+                    associatedWeeklyGoals.reduce(
+                      (sum, wg) => sum + (wg.progress || 0),
+                      0
+                    ) / associatedWeeklyGoals.length;
+                } else {
+                  const weightedSum = associatedWeeklyGoals.reduce((sum, wg) => {
+                    const normalizedWeight = (wg.weight || 0) / totalWeight;
+                    return sum + (wg.progress || 0) * normalizedWeight;
+                  }, 0);
+                  calculatedProgress = Math.round(weightedSum * 100) / 100;
+                }
+              }
+              
+              return {
+                ...goal,
+                progress: calculatedProgress,
+                completed: calculatedProgress >= 100,
+                autoCalculated: true,
+              };
+            });
+          });
+          
+          updateYearlyGoalsProgress();
+        }, 0);
+      }
+      
+      return updatedGoals;
+    });
+  };
+
+  const updateWeeklyGoal = (goalId, updates) => {
+    setWeeklyGoals((prevGoals) => {
+      const updatedGoals = prevGoals.map((goal) =>
+        goal.id === goalId ? { ...goal, ...updates } : goal
+      );
+      
+      // Immediately recalculate quarterly goals with the updated weekly goals
+      const oldGoal = prevGoals.find((g) => g.id === goalId);
+      const affectedQuarterlyGoalIds = new Set();
+      
+      if (oldGoal?.quarterlyGoalId) {
+        affectedQuarterlyGoalIds.add(oldGoal.quarterlyGoalId);
+      }
+      if (updates.quarterlyGoalId) {
+        affectedQuarterlyGoalIds.add(updates.quarterlyGoalId);
+      }
+      
+      // Update quarterly goals immediately with the new weekly goals data
+      if (affectedQuarterlyGoalIds.size > 0 || updates.progress !== undefined || updates.completed !== undefined) {
+        setTimeout(() => {
+          setQuarterlyGoals((prevQuarterlyGoals) => {
+            return prevQuarterlyGoals.map((goal) => {
+              const associatedWeeklyGoals = updatedGoals.filter(
+                (wg) => wg.quarterlyGoalId === goal.id
+              );
+              
+              if (associatedWeeklyGoals.length === 0) {
+                return { ...goal, autoCalculated: false };
+              }
+              
+              // Calculate progress with the updated weekly goals
+              let calculatedProgress = 0;
+              
+              if (associatedWeeklyGoals.length === 1) {
+                calculatedProgress = associatedWeeklyGoals[0].progress || 0;
+              } else {
+                const totalWeight = associatedWeeklyGoals.reduce(
+                  (sum, wg) => sum + (wg.weight || 0),
+                  0
+                );
+                
+                if (totalWeight === 0) {
+                  calculatedProgress =
+                    associatedWeeklyGoals.reduce(
+                      (sum, wg) => sum + (wg.progress || 0),
+                      0
+                    ) / associatedWeeklyGoals.length;
+                } else {
+                  const weightedSum = associatedWeeklyGoals.reduce((sum, wg) => {
+                    const normalizedWeight = (wg.weight || 0) / totalWeight;
+                    return sum + (wg.progress || 0) * normalizedWeight;
+                  }, 0);
+                  calculatedProgress = Math.round(weightedSum * 100) / 100;
+                }
+              }
+              
+              return {
+                ...goal,
+                progress: calculatedProgress,
+                completed: calculatedProgress >= 100,
+                autoCalculated: true,
+              };
+            });
+          });
+          
+          // Then update yearly goals
+          updateYearlyGoalsProgress();
+        }, 0);
+      }
+      
+      return updatedGoals;
+    });
+  };
+
+  const deleteWeeklyGoal = (goalId) => {
+    setWeeklyGoals((prevGoals) => {
+      const goal = prevGoals.find((g) => g.id === goalId);
+      const hadQuarterlyGoal = goal?.quarterlyGoalId;
+      const updatedGoals = prevGoals.filter((goal) => goal.id !== goalId);
+      
+      // Update quarterly goal progress if it was associated
+      if (hadQuarterlyGoal) {
+        setTimeout(() => {
+          setQuarterlyGoals((prevQuarterlyGoals) => {
+            return prevQuarterlyGoals.map((qGoal) => {
+              if (qGoal.id !== hadQuarterlyGoal) return qGoal;
+              
+              const associatedWeeklyGoals = updatedGoals.filter(
+                (wg) => wg.quarterlyGoalId === qGoal.id
+              );
+              
+              if (associatedWeeklyGoals.length === 0) {
+                return { ...qGoal, autoCalculated: false };
+              }
+              
+              // Calculate progress
+              let calculatedProgress = 0;
+              
+              if (associatedWeeklyGoals.length === 1) {
+                calculatedProgress = associatedWeeklyGoals[0].progress || 0;
+              } else {
+                const totalWeight = associatedWeeklyGoals.reduce(
+                  (sum, wg) => sum + (wg.weight || 0),
+                  0
+                );
+                
+                if (totalWeight === 0) {
+                  calculatedProgress =
+                    associatedWeeklyGoals.reduce(
+                      (sum, wg) => sum + (wg.progress || 0),
+                      0
+                    ) / associatedWeeklyGoals.length;
+                } else {
+                  const weightedSum = associatedWeeklyGoals.reduce((sum, wg) => {
+                    const normalizedWeight = (wg.weight || 0) / totalWeight;
+                    return sum + (wg.progress || 0) * normalizedWeight;
+                  }, 0);
+                  calculatedProgress = Math.round(weightedSum * 100) / 100;
+                }
+              }
+              
+              return {
+                ...qGoal,
+                progress: calculatedProgress,
+                completed: calculatedProgress >= 100,
+                autoCalculated: true,
+              };
+            });
+          });
+          
+          updateYearlyGoalsProgress();
+        }, 0);
+      }
+      
+      return updatedGoals;
+    });
+  };
+
+  // Update quarterly goals progress when weekly goals change
+  useEffect(() => {
+    if (isDataLoaded && weeklyGoals.length > 0) {
+      updateQuarterlyGoalsProgress();
+    }
+  }, [weeklyGoals, isDataLoaded]);
 
   // Update yearly goals progress when quarterly goals change
   useEffect(() => {
@@ -1079,10 +1395,11 @@ export default function Home() {
       habits,
       yearlyGoals,
       quarterlyGoals,
+      weeklyGoals,
       darkMode,
       theme,
       exportDate: new Date().toISOString(),
-      version: "3.2", // Update version for quarterly goals support
+      version: "3.3", // Update version for weekly goals support
     };
     const dataStr = JSON.stringify(data, null, 2);
     const dataBlob = new Blob([dataStr], { type: "application/json" });
@@ -1159,6 +1476,19 @@ export default function Home() {
                 weight: goal.weight || undefined,
               }));
               setQuarterlyGoals(convertedQuarterlyGoals);
+            }
+            if (data.weeklyGoals) {
+              // Convert date strings back to Date objects
+              const convertedWeeklyGoals = data.weeklyGoals.map((goal) => ({
+                ...goal,
+                createdAt: new Date(goal.createdAt),
+                progress: goal.progress || 0,
+                completed: !!goal.completed,
+                quarter: goal.quarter || 1,
+                week: goal.week || 1,
+                weight: goal.weight || undefined,
+              }));
+              setWeeklyGoals(convertedWeeklyGoals);
             }
             if (typeof data.darkMode === "boolean") setDarkMode(data.darkMode);
             if (data.theme) setTheme(data.theme);
@@ -1297,6 +1627,18 @@ export default function Home() {
                       <span>Habits</span>
                     </div>
                   </Button>
+
+                  <Button
+                    onClick={() => setShowWeeklyGoals(true)}
+                    variant="ghost"
+                    size="lg"
+                    className="flex-1 flex items-center justify-center px-4 sm:px-8 gap-2 font-extrabold group hover:bg-accent/50 dark:text-white"
+                  >
+                    <div className="group-hover:scale-110 transition-transform  flex items-center gap-2">
+                      <Calendar className="h-5 w-5" />
+                      <span>Weekly</span>
+                    </div>
+                  </Button>
                 </div>
               </div>
             </motion.div>
@@ -1305,7 +1647,7 @@ export default function Home() {
           {/* Desktop Layout (lg and up) */}
           <div className="hidden lg:flex max-h-screen h-screen overflow-hidden">
             {/* Left Sidebar - Calendar & Navigation */}
-            <div className="w-lg border-r border-dashed flex flex-col bg-background/50 backdrop-blur-sm">
+            <div className="w-[360px] border-r border-dashed flex flex-col bg-background/50 backdrop-blur-sm">
               <motion.div
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
@@ -1416,6 +1758,16 @@ export default function Home() {
                     <TrendingUp className="h-5 w-5 mr-2 group-hover:scale-110 transition-transform" />
                     <span className="font-extrabold">Quarterly</span>
                   </Button>
+
+                  <Button
+                    onClick={() => setShowWeeklyGoals(true)}
+                    variant="outline"
+                    size="lg"
+                    className="w-full h-12 font-bold hover:bg-accent/50 group hover:scale-[1.02] transition-all duration-200 rounded-2xl"
+                  >
+                    <Calendar className="h-5 w-5 mr-2 group-hover:scale-110 transition-transform" />
+                    <span className="font-extrabold">Weekly</span>
+                  </Button>
                 </div>
 
                 {/* Keyboard shortcuts hint */}
@@ -1425,6 +1777,7 @@ export default function Home() {
                   <div>⌘/Ctrl + H → Habits</div>
                   <div>⌘/Ctrl + G → Goals</div>
                   <div>⌘/Ctrl + Q → Quarterly</div>
+                  <div>⌘/Ctrl + W → Weekly</div>
                   <div>⌘/Ctrl + X → Settings</div>
                   <div>Esc → Close Modal</div>
                 </div>
@@ -1559,11 +1912,30 @@ export default function Home() {
               <QuarterlyGoalsTracker
                 quarterlyGoals={quarterlyGoals}
                 yearlyGoals={yearlyGoals}
+                weeklyGoals={weeklyGoals}
                 customTags={customTags}
                 onClose={() => setShowQuarterlyGoals(false)}
                 onUpdateGoals={setQuarterlyGoals}
                 onAddCustomTag={addCustomTag}
                 onYearlyGoalUpdate={updateYearlyGoalsProgress}
+                onOpenWeeklyGoals={(quarterlyGoalId) => {
+                  setShowQuarterlyGoals(false);
+                  setShowWeeklyGoals(true);
+                  // The WeeklyGoalsTracker will handle filtering based on the current context
+                }}
+              />
+            )}
+
+            {showWeeklyGoals && (
+              <WeeklyGoalsTracker
+                weeklyGoals={weeklyGoals}
+                quarterlyGoals={quarterlyGoals}
+                customTags={customTags}
+                onClose={() => setShowWeeklyGoals(false)}
+                onAddWeeklyGoal={addWeeklyGoal}
+                onUpdateWeeklyGoal={updateWeeklyGoal}
+                onDeleteWeeklyGoal={deleteWeeklyGoal}
+                onAddCustomTag={addCustomTag}
               />
             )}
 
