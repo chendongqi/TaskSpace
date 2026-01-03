@@ -6,7 +6,7 @@ import { DayNightCycle, AnimatedNumber } from "@/components/day-night-cycle";
 import { AnimatedYear } from "@/components/animated-year";
 import { WeeklyCalendar } from "@/components/weekly-calender";
 import { TaskList } from "@/components/task-list";
-import { Timer, Plus, BarChart3, Settings, CheckCircle, Target } from "lucide-react";
+import { Timer, Plus, BarChart3, Settings, CheckCircle, Target, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AddTaskModal } from "@/components/add-task-modal";
 import { TaskOptionsModal } from "@/components/task-options-modal";
@@ -17,6 +17,7 @@ import { SettingsModal } from "@/components/settings-modal";
 import { IntroScreen } from "@/components/intro-screen";
 import { WebRTCShareModal } from "@/components/webrtc-share-modal";
 import { YearlyGoalsTracker } from "@/components/yearly-goals-tracker";
+import { QuarterlyGoalsTracker } from "@/components/quarterly-goals-tracker";
 import { dataStorage } from "@/lib/storage";
 import "@/lib/debug"; // 导入调试工具
 
@@ -27,9 +28,11 @@ export default function Home() {
   const [customTags, setCustomTags] = useState([]);
   const [habits, setHabits] = useState([]);
   const [yearlyGoals, setYearlyGoals] = useState([]);
+  const [quarterlyGoals, setQuarterlyGoals] = useState([]);
   const [showTimer, setShowTimer] = useState(false);
   const [showHabits, setShowHabits] = useState(false);
   const [showYearlyGoals, setShowYearlyGoals] = useState(false);
+  const [showQuarterlyGoals, setShowQuarterlyGoals] = useState(false);
   const [showAddTask, setShowAddTask] = useState(false);
   const [showTaskOptions, setShowTaskOptions] = useState(false);
   const [showAddSubtask, setShowAddSubtask] = useState(false);
@@ -115,6 +118,19 @@ export default function Home() {
             createdAt: new Date(goal.createdAt),
             progress: goal.progress || 0,
             completed: !!goal.completed,
+            autoCalculated: goal.autoCalculated || false,
+          }));
+        });
+        
+        loadDataItem("quarterlyGoals", setQuarterlyGoals, (savedGoals) => {
+          // Convert date strings back to Date objects
+          return savedGoals.map((goal) => ({
+            ...goal,
+            createdAt: new Date(goal.createdAt),
+            progress: goal.progress || 0,
+            completed: !!goal.completed,
+            quarter: goal.quarter || 1,
+            weight: goal.weight || undefined,
           }));
         });
         
@@ -170,6 +186,7 @@ export default function Home() {
         setShowAddTask(false);
         setShowHabits(false);
         setShowYearlyGoals(false);
+        setShowQuarterlyGoals(false);
         setShowTimer(false);
         setShowSettings(false);
         setShowTaskOptions(false);
@@ -181,6 +198,7 @@ export default function Home() {
         showAddTask ||
         showHabits ||
         showYearlyGoals ||
+        showQuarterlyGoals ||
         showTimer ||
         showSettings ||
         showTaskOptions ||
@@ -206,6 +224,10 @@ export default function Home() {
             event.preventDefault();
             setShowYearlyGoals(true);
             break;
+          case "q": // Ctrl/Cmd + Q for Quarterly Goals
+            event.preventDefault();
+            setShowQuarterlyGoals(true);
+            break;
           case "c": // Ctrl/Cmd + C for Timer
             event.preventDefault();
             setShowTimer(true);
@@ -229,6 +251,7 @@ export default function Home() {
     showAddTask,
     showHabits,
     showYearlyGoals,
+    showQuarterlyGoals,
     showTimer,
     showSettings,
     showTaskOptions,
@@ -273,6 +296,133 @@ export default function Home() {
       dataStorage.setLocalData("yearlyGoals", yearlyGoals);
     }
   }, [yearlyGoals, isDataLoaded]);
+
+  useEffect(() => {
+    if (isDataLoaded) {
+      dataStorage.setLocalData("quarterlyGoals", quarterlyGoals);
+    }
+  }, [quarterlyGoals, isDataLoaded]);
+
+  // Calculate yearly goal progress based on associated quarterly goals
+  const calculateYearlyGoalProgress = (yearlyGoalId) => {
+    const associatedQuarterlyGoals = quarterlyGoals.filter(
+      (qg) => qg.yearlyGoalId === yearlyGoalId
+    );
+
+    if (associatedQuarterlyGoals.length === 0) {
+      return null; // No associated quarterly goals, return null to indicate manual mode
+    }
+
+    if (associatedQuarterlyGoals.length === 1) {
+      // Single quarterly goal, use its progress directly
+      return associatedQuarterlyGoals[0].progress || 0;
+    }
+
+    // Multiple quarterly goals, calculate weighted average
+    const totalWeight = associatedQuarterlyGoals.reduce(
+      (sum, qg) => sum + (qg.weight || 0),
+      0
+    );
+
+    if (totalWeight === 0) {
+      // All weights are 0, fallback to average
+      const avgProgress =
+        associatedQuarterlyGoals.reduce(
+          (sum, qg) => sum + (qg.progress || 0),
+          0
+        ) / associatedQuarterlyGoals.length;
+      return avgProgress;
+    }
+
+    // Calculate weighted average with normalization
+    const weightedSum = associatedQuarterlyGoals.reduce((sum, qg) => {
+      const normalizedWeight = totalWeight > 0 ? (qg.weight || 0) / totalWeight : 0;
+      return sum + (qg.progress || 0) * normalizedWeight;
+    }, 0);
+
+    return Math.round(weightedSum * 100) / 100; // Round to 2 decimal places
+  };
+
+  // Update yearly goals progress based on quarterly goals
+  const updateYearlyGoalsProgress = () => {
+    setYearlyGoals((prevGoals) => {
+      return prevGoals.map((goal) => {
+        const calculatedProgress = calculateYearlyGoalProgress(goal.id);
+        
+        if (calculatedProgress === null) {
+          // No associated quarterly goals, keep manual mode
+          return {
+            ...goal,
+            autoCalculated: false,
+          };
+        } else {
+          // Has associated quarterly goals, use auto-calculated progress
+          return {
+            ...goal,
+            progress: calculatedProgress,
+            completed: calculatedProgress >= 100,
+            autoCalculated: true,
+          };
+        }
+      });
+    });
+  };
+
+  // Quarterly goal management functions
+  const addQuarterlyGoal = (title, description, year, quarter, yearlyGoalId, weight, tagId) => {
+    const newGoal = {
+      id: Date.now().toString(),
+      title,
+      description,
+      year: parseInt(year),
+      quarter: parseInt(quarter),
+      completed: false,
+      progress: 0,
+      yearlyGoalId: yearlyGoalId && yearlyGoalId !== "none" ? yearlyGoalId : undefined,
+      weight: yearlyGoalId && yearlyGoalId !== "none" ? Math.max(0, Math.min(100, weight || 0)) : undefined,
+      tag: tagId || undefined,
+      createdAt: new Date(),
+    };
+    setQuarterlyGoals((prevGoals) => [...prevGoals, newGoal]);
+    
+    // Update yearly goal progress if associated
+    if (newGoal.yearlyGoalId) {
+      setTimeout(() => updateYearlyGoalsProgress(), 0);
+    }
+  };
+
+  const updateQuarterlyGoal = (goalId, updates) => {
+    const oldGoal = quarterlyGoals.find((g) => g.id === goalId);
+    setQuarterlyGoals((prevGoals) =>
+      prevGoals.map((goal) =>
+        goal.id === goalId ? { ...goal, ...updates } : goal
+      )
+    );
+    
+    // Update yearly goal progress if association changed
+    if (oldGoal?.yearlyGoalId || updates.yearlyGoalId) {
+      setTimeout(() => updateYearlyGoalsProgress(), 0);
+    }
+  };
+
+  const deleteQuarterlyGoal = (goalId) => {
+    const goal = quarterlyGoals.find((g) => g.id === goalId);
+    const hadYearlyGoal = goal?.yearlyGoalId;
+    
+    setQuarterlyGoals((prevGoals) => prevGoals.filter((goal) => goal.id !== goalId));
+    
+    // Update yearly goal progress if it was associated
+    if (hadYearlyGoal) {
+      setTimeout(() => updateYearlyGoalsProgress(), 0);
+    }
+  };
+
+  // Update yearly goals progress when quarterly goals change
+  useEffect(() => {
+    if (isDataLoaded && quarterlyGoals.length > 0) {
+      updateYearlyGoalsProgress();
+    }
+  }, [quarterlyGoals, isDataLoaded]);
 
   const getDateString = (date) => {
     const year = date.getFullYear();
@@ -928,10 +1078,11 @@ export default function Home() {
       customTags,
       habits,
       yearlyGoals,
+      quarterlyGoals,
       darkMode,
       theme,
       exportDate: new Date().toISOString(),
-      version: "3.1", // Update version for yearly goals support
+      version: "3.2", // Update version for quarterly goals support
     };
     const dataStr = JSON.stringify(data, null, 2);
     const dataBlob = new Blob([dataStr], { type: "application/json" });
@@ -993,8 +1144,21 @@ export default function Home() {
                 createdAt: new Date(goal.createdAt),
                 progress: goal.progress || 0,
                 completed: !!goal.completed,
+                autoCalculated: goal.autoCalculated || false,
               }));
               setYearlyGoals(convertedGoals);
+            }
+            if (data.quarterlyGoals) {
+              // Convert date strings back to Date objects
+              const convertedQuarterlyGoals = data.quarterlyGoals.map((goal) => ({
+                ...goal,
+                createdAt: new Date(goal.createdAt),
+                progress: goal.progress || 0,
+                completed: !!goal.completed,
+                quarter: goal.quarter || 1,
+                weight: goal.weight || undefined,
+              }));
+              setQuarterlyGoals(convertedQuarterlyGoals);
             }
             if (typeof data.darkMode === "boolean") setDarkMode(data.darkMode);
             if (data.theme) setTheme(data.theme);
@@ -1242,6 +1406,16 @@ export default function Home() {
                     <Target className="h-5 w-5 mr-2 group-hover:scale-110 transition-transform" />
                     <span className="font-extrabold">Goals</span>
                   </Button>
+
+                  <Button
+                    onClick={() => setShowQuarterlyGoals(true)}
+                    variant="outline"
+                    size="lg"
+                    className="w-full h-12 font-bold hover:bg-accent/50 group hover:scale-[1.02] transition-all duration-200 rounded-2xl"
+                  >
+                    <TrendingUp className="h-5 w-5 mr-2 group-hover:scale-110 transition-transform" />
+                    <span className="font-extrabold">Quarterly</span>
+                  </Button>
                 </div>
 
                 {/* Keyboard shortcuts hint */}
@@ -1250,6 +1424,7 @@ export default function Home() {
                   <div>⌘/Ctrl + C → Timer</div>
                   <div>⌘/Ctrl + H → Habits</div>
                   <div>⌘/Ctrl + G → Goals</div>
+                  <div>⌘/Ctrl + Q → Quarterly</div>
                   <div>⌘/Ctrl + X → Settings</div>
                   <div>Esc → Close Modal</div>
                 </div>
@@ -1366,10 +1541,29 @@ export default function Home() {
             {showYearlyGoals && (
               <YearlyGoalsTracker
                 yearlyGoals={yearlyGoals}
+                quarterlyGoals={quarterlyGoals}
                 customTags={customTags}
                 onClose={() => setShowYearlyGoals(false)}
                 onUpdateGoals={setYearlyGoals}
                 onAddCustomTag={addCustomTag}
+                onYearlyGoalUpdate={updateYearlyGoalsProgress}
+                onOpenQuarterlyGoals={(yearlyGoalId) => {
+                  setShowYearlyGoals(false);
+                  setShowQuarterlyGoals(true);
+                  // TODO: Filter quarterly goals by yearlyGoalId when viewing
+                }}
+              />
+            )}
+
+            {showQuarterlyGoals && (
+              <QuarterlyGoalsTracker
+                quarterlyGoals={quarterlyGoals}
+                yearlyGoals={yearlyGoals}
+                customTags={customTags}
+                onClose={() => setShowQuarterlyGoals(false)}
+                onUpdateGoals={setQuarterlyGoals}
+                onAddCustomTag={addCustomTag}
+                onYearlyGoalUpdate={updateYearlyGoalsProgress}
               />
             )}
 

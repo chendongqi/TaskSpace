@@ -14,7 +14,6 @@ import {
   Check,
   TrendingUp,
   Link as LinkIcon,
-  Calculator,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,17 +38,27 @@ const PRESET_COLORS = [
   "#6366f1", // indigo
 ];
 
-export function YearlyGoalsTracker({
+const QUARTERS = [
+  { value: 1, label: "Q1" },
+  { value: 2, label: "Q2" },
+  { value: 3, label: "Q3" },
+  { value: 4, label: "Q4" },
+];
+
+export function QuarterlyGoalsTracker({
+  quarterlyGoals,
   yearlyGoals,
-  quarterlyGoals = [],
   customTags,
   onClose,
   onUpdateGoals,
   onAddCustomTag,
   onYearlyGoalUpdate,
-  onOpenQuarterlyGoals,
 }) {
-  const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+  const currentDate = new Date();
+  const [currentYear, setCurrentYear] = useState(currentDate.getFullYear());
+  const [currentQuarter, setCurrentQuarter] = useState(
+    Math.floor((currentDate.getMonth() + 3) / 3)
+  );
   const [showAddForm, setShowAddForm] = useState(false);
   const [showAddTag, setShowAddTag] = useState(false);
   const [editingGoal, setEditingGoal] = useState(null);
@@ -58,6 +67,9 @@ export function YearlyGoalsTracker({
   const [goalTitle, setGoalTitle] = useState("");
   const [goalDescription, setGoalDescription] = useState("");
   const [goalYear, setGoalYear] = useState(currentYear);
+  const [goalQuarter, setGoalQuarter] = useState(currentQuarter);
+  const [selectedYearlyGoal, setSelectedYearlyGoal] = useState("none");
+  const [goalWeight, setGoalWeight] = useState(25);
   const [selectedTag, setSelectedTag] = useState("none");
   const [newTagName, setNewTagName] = useState("");
   const [selectedColor, setSelectedColor] = useState(PRESET_COLORS[0]);
@@ -81,20 +93,35 @@ export function YearlyGoalsTracker({
     }
   };
 
-  // Filter goals by current year
-  const currentYearGoals = yearlyGoals.filter((goal) => goal.year === currentYear);
+  // Filter goals by current year and quarter
+  const filteredGoals = quarterlyGoals.filter(
+    (goal) => goal.year === currentYear && goal.quarter === currentQuarter
+  );
   
   // Sort goals: incomplete first, then completed
-  const sortedGoals = [...currentYearGoals].sort((a, b) => {
+  const sortedGoals = [...filteredGoals].sort((a, b) => {
     if (a.completed === b.completed) return 0;
     return a.completed ? 1 : -1;
   });
 
   // Calculate statistics
-  const completedCount = currentYearGoals.filter((g) => g.completed).length;
-  const avgProgress = currentYearGoals.length > 0
-    ? currentYearGoals.reduce((sum, g) => sum + (g.progress || 0), 0) / currentYearGoals.length
+  const completedCount = filteredGoals.filter((g) => g.completed).length;
+  const avgProgress = filteredGoals.length > 0
+    ? filteredGoals.reduce((sum, g) => sum + (g.progress || 0), 0) / filteredGoals.length
     : 0;
+
+  // Get available yearly goals for the current year
+  const availableYearlyGoals = yearlyGoals.filter(
+    (goal) => goal.year === goalYear
+  );
+
+  // Calculate total weight for selected yearly goal
+  const getTotalWeightForYearlyGoal = (yearlyGoalId) => {
+    if (!yearlyGoalId || yearlyGoalId === "none") return 0;
+    return quarterlyGoals
+      .filter((g) => g.yearlyGoalId === yearlyGoalId && g.id !== editingGoal?.id)
+      .reduce((sum, g) => sum + (g.weight || 0), 0);
+  };
 
   const addOrUpdateGoal = () => {
     if (!goalTitle.trim()) return;
@@ -104,28 +131,46 @@ export function YearlyGoalsTracker({
       title: goalTitle.trim(),
       description: goalDescription.trim(),
       year: goalYear,
+      quarter: goalQuarter,
       completed: editingGoal?.completed || false,
       progress: editingGoal?.progress || 0,
+      yearlyGoalId: selectedYearlyGoal && selectedYearlyGoal !== "none" ? selectedYearlyGoal : undefined,
+      weight: selectedYearlyGoal && selectedYearlyGoal !== "none" ? Math.max(0, Math.min(100, goalWeight)) : undefined,
       tag: selectedTag && selectedTag !== "none" ? selectedTag : undefined,
       createdAt: editingGoal?.createdAt || new Date(),
     };
 
+    const oldYearlyGoalId = editingGoal?.yearlyGoalId;
+
     if (editingGoal) {
       // Update existing goal
-      const updatedGoals = yearlyGoals.map((goal) =>
+      const updatedGoals = quarterlyGoals.map((goal) =>
         goal.id === editingGoal.id ? goalData : goal
       );
       onUpdateGoals(updatedGoals);
+      
+      // Trigger yearly goal progress update if association changed
+      if (oldYearlyGoalId !== goalData.yearlyGoalId || oldYearlyGoalId) {
+        onYearlyGoalUpdate();
+      }
     } else {
       // Add new goal
-      onUpdateGoals([...yearlyGoals, goalData]);
+      onUpdateGoals([...quarterlyGoals, goalData]);
+      
+      // Trigger yearly goal progress update if associated
+      if (goalData.yearlyGoalId) {
+        onYearlyGoalUpdate();
+      }
     }
 
     // Reset form
     setGoalTitle("");
     setGoalDescription("");
     setGoalYear(currentYear);
-    setSelectedTag("");
+    setGoalQuarter(currentQuarter);
+    setSelectedYearlyGoal("none");
+    setGoalWeight(25);
+    setSelectedTag("none");
     setShowAddForm(false);
     setEditingGoal(null);
   };
@@ -135,6 +180,9 @@ export function YearlyGoalsTracker({
     setGoalTitle(goal.title);
     setGoalDescription(goal.description || "");
     setGoalYear(goal.year);
+    setGoalQuarter(goal.quarter);
+    setSelectedYearlyGoal(goal.yearlyGoalId || "none");
+    setGoalWeight(goal.weight || 25);
     setSelectedTag(goal.tag || "none");
     setShowAddForm(true);
   };
@@ -144,30 +192,33 @@ export function YearlyGoalsTracker({
     setGoalTitle("");
     setGoalDescription("");
     setGoalYear(currentYear);
+    setGoalQuarter(currentQuarter);
+    setSelectedYearlyGoal("none");
+    setGoalWeight(25);
     setSelectedTag("none");
     setShowAddForm(false);
   };
 
   const deleteGoal = (goalId) => {
-    if (confirm("确定要删除这个目标吗？")) {
-      const updatedGoals = yearlyGoals.filter((goal) => goal.id !== goalId);
+    const goal = quarterlyGoals.find((g) => g.id === goalId);
+    const hasYearlyGoal = goal?.yearlyGoalId;
+    const message = hasYearlyGoal
+      ? "确定要删除这个季度目标吗？删除后，关联的年度目标进度将重新计算。"
+      : "确定要删除这个季度目标吗？";
+    
+    if (confirm(message)) {
+      const updatedGoals = quarterlyGoals.filter((goal) => goal.id !== goalId);
       onUpdateGoals(updatedGoals);
+      
+      // Trigger yearly goal progress update if it was associated
+      if (hasYearlyGoal) {
+        onYearlyGoalUpdate();
+      }
     }
   };
 
   const updateProgress = (goalId, newProgress) => {
-    const goal = yearlyGoals.find((g) => g.id === goalId);
-    if (!goal) return;
-    
-    const associatedQuarterlyGoals = getAssociatedQuarterlyGoals(goalId);
-    const hasAssociatedQuarterlyGoals = associatedQuarterlyGoals.length > 0;
-    
-    // If goal has associated quarterly goals, don't allow manual progress update
-    if (hasAssociatedQuarterlyGoals) {
-      return; // Progress is auto-calculated, ignore manual updates
-    }
-    
-    const updatedGoals = yearlyGoals.map((goal) => {
+    const updatedGoals = quarterlyGoals.map((goal) => {
       if (goal.id === goalId) {
         const progress = Math.max(0, Math.min(100, newProgress));
         const wasCompleted = goal.completed;
@@ -183,33 +234,24 @@ export function YearlyGoalsTracker({
       return goal;
     });
     onUpdateGoals(updatedGoals);
+    
+    // Trigger yearly goal progress update if associated
+    const goal = updatedGoals.find((g) => g.id === goalId);
+    if (goal?.yearlyGoalId) {
+      onYearlyGoalUpdate();
+    }
   };
 
   const toggleCompleted = (goalId) => {
-    const goal = yearlyGoals.find((g) => g.id === goalId);
+    const goal = quarterlyGoals.find((g) => g.id === goalId);
     if (!goal) return;
     
-    const associatedQuarterlyGoals = getAssociatedQuarterlyGoals(goalId);
-    const hasAssociatedQuarterlyGoals = associatedQuarterlyGoals.length > 0;
-    
     const newCompleted = !goal.completed;
-    const updatedGoals = yearlyGoals.map((g) => {
+    const updatedGoals = quarterlyGoals.map((g) => {
       if (g.id === goalId) {
         if (newCompleted && !g.completed) {
           playCompleteSound();
         }
-        
-        // If goal has associated quarterly goals and we're uncompleting it,
-        // don't set progress manually - let it be recalculated
-        if (!newCompleted && hasAssociatedQuarterlyGoals) {
-          // Just update completed status, progress will be recalculated
-          return {
-            ...g,
-            completed: false,
-            // Keep current progress temporarily, will be recalculated
-          };
-        }
-        
         return {
           ...g,
           completed: newCompleted,
@@ -220,11 +262,9 @@ export function YearlyGoalsTracker({
     });
     onUpdateGoals(updatedGoals);
     
-    // If uncompleting a goal with associated quarterly goals, recalculate progress
-    if (!newCompleted && hasAssociatedQuarterlyGoals && onYearlyGoalUpdate) {
-      setTimeout(() => {
-        onYearlyGoalUpdate();
-      }, 0);
+    // Trigger yearly goal progress update if associated
+    if (goal.yearlyGoalId) {
+      onYearlyGoalUpdate();
     }
   };
 
@@ -241,8 +281,8 @@ export function YearlyGoalsTracker({
     return customTags.find((tag) => tag.id === tagId);
   };
 
-  const getAssociatedQuarterlyGoals = (yearlyGoalId) => {
-    return quarterlyGoals.filter((qg) => qg.yearlyGoalId === yearlyGoalId);
+  const getYearlyGoalInfo = (yearlyGoalId) => {
+    return yearlyGoals.find((goal) => goal.id === yearlyGoalId);
   };
 
   const nextYear = () => {
@@ -251,6 +291,24 @@ export function YearlyGoalsTracker({
 
   const prevYear = () => {
     setCurrentYear(currentYear - 1);
+  };
+
+  const nextQuarter = () => {
+    if (currentQuarter < 4) {
+      setCurrentQuarter(currentQuarter + 1);
+    } else {
+      setCurrentQuarter(1);
+      setCurrentYear(currentYear + 1);
+    }
+  };
+
+  const prevQuarter = () => {
+    if (currentQuarter > 1) {
+      setCurrentQuarter(currentQuarter - 1);
+    } else {
+      setCurrentQuarter(4);
+      setCurrentYear(currentYear - 1);
+    }
   };
 
   // Animation variants
@@ -313,6 +371,11 @@ export function YearlyGoalsTracker({
     },
   };
 
+  const currentQuarterLabel = QUARTERS.find((q) => q.value === currentQuarter)?.label || "Q1";
+  const totalWeight = selectedYearlyGoal && selectedYearlyGoal !== "none"
+    ? getTotalWeightForYearlyGoal(selectedYearlyGoal) + goalWeight
+    : 0;
+
   return (
     <>
       <motion.div
@@ -336,12 +399,12 @@ export function YearlyGoalsTracker({
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
-                  <Target className="h-5 w-5 text-primary" />
+                  <TrendingUp className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-extrabold">年度目标</h2>
+                  <h2 className="text-xl font-extrabold">季度目标</h2>
                   <p className="text-sm text-muted-foreground">
-                    {completedCount}/{currentYearGoals.length} 已完成 • 平均进度 {avgProgress.toFixed(0)}%
+                    {completedCount}/{filteredGoals.length} 已完成 • 平均进度 {avgProgress.toFixed(0)}%
                   </p>
                 </div>
               </div>
@@ -355,7 +418,7 @@ export function YearlyGoalsTracker({
               </Button>
             </div>
 
-            {/* Year Navigation */}
+            {/* Year and Quarter Navigation */}
             <div className="flex items-center justify-center gap-4 mt-4">
               <Button
                 variant="ghost"
@@ -377,6 +440,28 @@ export function YearlyGoalsTracker({
               >
                 <ChevronRight className="h-5 w-5" />
               </Button>
+              
+              <div className="w-px h-6 bg-border mx-2" />
+              
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={prevQuarter}
+                className="rounded-full"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </Button>
+              <div className="flex items-center gap-2 min-w-[60px] justify-center">
+                <span className="text-lg font-extrabold">{currentQuarterLabel}</span>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={nextQuarter}
+                className="rounded-full"
+              >
+                <ChevronRight className="h-5 w-5" />
+              </Button>
             </div>
           </div>
 
@@ -389,7 +474,7 @@ export function YearlyGoalsTracker({
                 className="bg-accent/30 rounded-2xl p-6 mb-4"
               >
                 <h3 className="text-lg font-extrabold mb-4">
-                  {editingGoal ? "编辑目标" : "添加新目标"}
+                  {editingGoal ? "编辑季度目标" : "添加新季度目标"}
                 </h3>
                 
                 <div className="space-y-4">
@@ -398,7 +483,7 @@ export function YearlyGoalsTracker({
                       目标标题 *
                     </label>
                     <Input
-                      placeholder="例如：学习一门新语言"
+                      placeholder="例如：完成项目第一阶段"
                       value={goalTitle}
                       onChange={(e) => setGoalTitle(e.target.value)}
                       className="w-full"
@@ -410,23 +495,87 @@ export function YearlyGoalsTracker({
                       目标描述
                     </label>
                     <textarea
-                      placeholder="描述你的目标细节..."
+                      placeholder="描述你的季度目标细节..."
                       value={goalDescription}
                       onChange={(e) => setGoalDescription(e.target.value)}
                       className="w-full min-h-[80px] px-3 py-2 bg-background border rounded-lg resize-none"
                     />
                   </div>
 
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-semibold mb-2 block">
+                        目标年份
+                      </label>
+                      <Input
+                        type="number"
+                        value={goalYear}
+                        onChange={(e) => setGoalYear(parseInt(e.target.value) || currentYear)}
+                        className="w-full"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-sm font-semibold mb-2 block">
+                        季度
+                      </label>
+                      <Select value={goalQuarter.toString()} onValueChange={(v) => setGoalQuarter(parseInt(v))}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {QUARTERS.map((q) => (
+                            <SelectItem key={q.value} value={q.value.toString()}>
+                              {q.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
                   <div>
                     <label className="text-sm font-semibold mb-2 block">
-                      目标年份
+                      关联年度目标（可选）
                     </label>
-                    <Input
-                      type="number"
-                      value={goalYear}
-                      onChange={(e) => setGoalYear(parseInt(e.target.value) || currentYear)}
-                      className="w-32"
-                    />
+                    <Select value={selectedYearlyGoal} onValueChange={setSelectedYearlyGoal}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="选择年度目标（可选）" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">无关联</SelectItem>
+                        {availableYearlyGoals.map((goal) => (
+                          <SelectItem key={goal.id} value={goal.id}>
+                            {goal.title}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {selectedYearlyGoal && selectedYearlyGoal !== "none" && (
+                      <div className="mt-2 space-y-2">
+                        <div>
+                          <label className="text-sm font-semibold mb-2 block">
+                            权重占比 (0-100)
+                          </label>
+                          <Input
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={goalWeight}
+                            onChange={(e) => setGoalWeight(parseInt(e.target.value) || 0)}
+                            className="w-full"
+                          />
+                          <p className="text-xs text-muted-foreground mt-1">
+                            当前年度目标已分配权重: {getTotalWeightForYearlyGoal(selectedYearlyGoal)}%
+                            {totalWeight > 100 && (
+                              <span className="text-destructive ml-1">
+                                (总计 {totalWeight}%，将自动归一化)
+                              </span>
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <div>
@@ -516,19 +665,19 @@ export function YearlyGoalsTracker({
                 size="lg"
               >
                 <Plus className="h-5 w-5 mr-2" />
-                添加新目标
+                添加新季度目标
               </Button>
             )}
 
             {/* Goals List */}
             {sortedGoals.length === 0 ? (
               <div className="text-center py-12">
-                <Target className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-50" />
+                <TrendingUp className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-50" />
                 <p className="text-lg font-semibold text-muted-foreground">
-                  {currentYear} 年还没有目标
+                  {currentYear} 年 {currentQuarterLabel} 还没有目标
                 </p>
                 <p className="text-sm text-muted-foreground mt-2">
-                  点击上方按钮添加你的第一个年度目标
+                  点击上方按钮添加你的第一个季度目标
                 </p>
               </div>
             ) : (
@@ -538,23 +687,19 @@ export function YearlyGoalsTracker({
                 initial="hidden"
                 animate="visible"
               >
-                {sortedGoals.map((goal) => {
-                  const associatedQuarterlyGoals = getAssociatedQuarterlyGoals(goal.id);
-                  return (
-                    <GoalCard
-                      key={goal.id}
-                      goal={goal}
-                      tagInfo={getTagInfo(goal.tag)}
-                      associatedQuarterlyGoals={associatedQuarterlyGoals}
-                      onToggleCompleted={toggleCompleted}
-                      onUpdateProgress={updateProgress}
-                      onEdit={startEdit}
-                      onDelete={deleteGoal}
-                      onOpenQuarterlyGoals={onOpenQuarterlyGoals}
-                      variants={itemVariants}
-                    />
-                  );
-                })}
+                {sortedGoals.map((goal) => (
+                  <QuarterlyGoalCard
+                    key={goal.id}
+                    goal={goal}
+                    tagInfo={getTagInfo(goal.tag)}
+                    yearlyGoalInfo={getYearlyGoalInfo(goal.yearlyGoalId)}
+                    onToggleCompleted={toggleCompleted}
+                    onUpdateProgress={updateProgress}
+                    onEdit={startEdit}
+                    onDelete={deleteGoal}
+                    variants={itemVariants}
+                  />
+                ))}
               </motion.div>
             )}
           </div>
@@ -564,20 +709,18 @@ export function YearlyGoalsTracker({
   );
 }
 
-function GoalCard({
+function QuarterlyGoalCard({
   goal,
   tagInfo,
-  associatedQuarterlyGoals = [],
+  yearlyGoalInfo,
   onToggleCompleted,
   onUpdateProgress,
   onEdit,
   onDelete,
-  onOpenQuarterlyGoals,
   variants,
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [progressInput, setProgressInput] = useState(goal.progress || 0);
-  const isAutoCalculated = goal.autoCalculated || associatedQuarterlyGoals.length > 0;
 
   const handleProgressChange = (e) => {
     const value = parseInt(e.target.value) || 0;
@@ -588,6 +731,8 @@ function GoalCard({
     onUpdateProgress(goal.id, progressInput);
     setIsEditing(false);
   };
+
+  const quarterLabel = QUARTERS.find((q) => q.value === goal.quarter)?.label || `Q${goal.quarter}`;
 
   return (
     <motion.div
@@ -615,6 +760,22 @@ function GoalCard({
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2 mb-2">
             <div className="flex-1">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-xs font-bold text-muted-foreground bg-muted px-2 py-0.5 rounded">
+                  {goal.year} {quarterLabel}
+                </span>
+                {yearlyGoalInfo && (
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <LinkIcon className="h-3 w-3" />
+                    <span>{yearlyGoalInfo.title}</span>
+                    {goal.weight !== undefined && (
+                      <span className="text-primary font-semibold">
+                        ({goal.weight}%)
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
               <h3
                 className={`font-extrabold text-lg ${
                   goal.completed ? "line-through" : ""
@@ -664,27 +825,15 @@ function GoalCard({
                 {tagInfo.name}
               </div>
             )}
-            {associatedQuarterlyGoals.length > 0 && (
-              <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary">
-                <LinkIcon className="h-3 w-3" />
-                {associatedQuarterlyGoals.length} 个季度目标
-              </div>
-            )}
-            {isAutoCalculated && (
-              <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-semibold bg-muted text-muted-foreground">
-                <Calculator className="h-3 w-3" />
-                自动计算
-              </div>
-            )}
           </div>
 
           {/* Progress Bar */}
           <div className="mt-3">
             <div className="flex items-center justify-between mb-1">
               <span className="text-xs font-semibold text-muted-foreground">
-                进度 {isAutoCalculated && <span className="text-muted-foreground/70">(自动)</span>}
+                进度
               </span>
-              {isEditing && !isAutoCalculated ? (
+              {isEditing ? (
                 <input
                   type="number"
                   value={progressInput}
@@ -704,67 +853,40 @@ function GoalCard({
                 />
               ) : (
                 <button
-                  onClick={() => !isAutoCalculated && setIsEditing(true)}
-                  disabled={isAutoCalculated}
-                  className={`text-sm font-extrabold transition-colors ${
-                    isAutoCalculated
-                      ? "text-muted-foreground cursor-not-allowed"
-                      : "hover:text-primary"
-                  }`}
-                  title={isAutoCalculated ? "进度由关联的季度目标自动计算" : "点击编辑进度"}
+                  onClick={() => setIsEditing(true)}
+                  className="text-sm font-extrabold hover:text-primary transition-colors"
+                  title="点击编辑进度"
                 >
                   {goal.progress || 0}%
                 </button>
               )}
             </div>
-            
-            {/* Progress Bar with Slider for Manual Goals */}
-            {!isAutoCalculated ? (
-              <div className="relative">
-                {/* Visual Progress Bar */}
-                <div className="h-2 bg-muted rounded-full overflow-hidden mb-2">
-                  <motion.div
-                    className="h-full bg-primary"
-                    initial={{ width: 0 }}
-                    animate={{ width: `${goal.progress || 0}%` }}
-                    transition={{ duration: 0.2, ease: "easeOut" }}
-                  />
-                </div>
-                {/* Draggable Slider */}
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={goal.progress || 0}
-                  onChange={(e) => {
-                    const newProgress = parseInt(e.target.value);
-                    onUpdateProgress(goal.id, newProgress);
-                  }}
-                  className="w-full h-2 absolute top-0 slider"
-                  style={{ zIndex: 10 }}
-                  title="拖动设置进度"
-                />
-              </div>
-            ) : (
-              <div className="h-2 bg-muted rounded-full overflow-hidden">
+            {/* Progress Bar with Slider */}
+            <div className="relative">
+              {/* Visual Progress Bar */}
+              <div className="h-2 bg-muted rounded-full overflow-hidden mb-2">
                 <motion.div
                   className="h-full bg-primary"
                   initial={{ width: 0 }}
                   animate={{ width: `${goal.progress || 0}%` }}
-                  transition={{ duration: 0.5, ease: "easeOut" }}
+                  transition={{ duration: 0.2, ease: "easeOut" }}
                 />
               </div>
-            )}
-            
-            {associatedQuarterlyGoals.length > 0 && onOpenQuarterlyGoals && (
-              <button
-                onClick={() => onOpenQuarterlyGoals(goal.id)}
-                className="mt-2 text-xs text-primary hover:underline flex items-center gap-1"
-              >
-                <LinkIcon className="h-3 w-3" />
-                查看关联的季度目标
-              </button>
-            )}
+              {/* Draggable Slider */}
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={goal.progress || 0}
+                onChange={(e) => {
+                  const newProgress = parseInt(e.target.value);
+                  onUpdateProgress(goal.id, newProgress);
+                }}
+                className="w-full h-2 absolute top-0 slider"
+                style={{ zIndex: 10 }}
+                title="拖动设置进度"
+              />
+            </div>
           </div>
         </div>
       </div>

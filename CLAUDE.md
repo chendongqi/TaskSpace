@@ -117,6 +117,7 @@ npm run tauri       # Tauri 相关命令
 - 任务支持分层子任务结构
 - 习惯跟踪使用日期网格数据
 - 年度目标支持进度追踪和年份筛选
+- **季度目标支持季度筛选和年度目标关联**
 - 主题配置存储在 CSS 变量中
 - 所有数据通过 LocalStorage 持久化
 
@@ -129,10 +130,35 @@ npm run tauri       # Tauri 相关命令
   year: number,         // 目标年份（必填）
   completed: boolean,   // 完成状态（默认 false）
   progress: number,     // 完成进度 0-100（默认 0）
+  autoCalculated: boolean, // 进度是否为自动计算（默认 false）
   tag: string,          // 标签 ID（可选）
   createdAt: Date       // 创建时间
 }
 ```
+
+#### 季度目标数据结构
+```javascript
+{
+  id: string,           // 唯一标识符（时间戳生成）
+  title: string,        // 目标标题（必填）
+  description: string,  // 目标描述（可选）
+  year: number,         // 目标年份（必填）
+  quarter: number,      // 目标季度 1-4（必填）
+  completed: boolean,   // 完成状态（默认 false）
+  progress: number,     // 完成进度 0-100（默认 0）
+  yearlyGoalId: string, // 关联的年度目标 ID（可选）
+  weight: number,       // 权重占比 0-100（仅当关联年度目标时有效）
+  tag: string,          // 标签 ID（可选）
+  createdAt: Date       // 创建时间
+}
+```
+
+#### 年度目标与季度目标关联关系
+- 季度目标可以关联到同年的年度目标
+- 当季度目标关联到年度目标时，年度目标的进度自动根据关联的所有季度目标的加权平均值计算
+- 权重归一化：如果权重总和不等于 100%，系统自动归一化
+- 计算公式：`年度进度 = Σ(季度目标进度 × 归一化权重)`
+- 当年度目标有关联的季度目标时，`autoCalculated` 为 `true`，禁用手动进度编辑
 
 ## Docker 部署指南
 

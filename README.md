@@ -1,8 +1,8 @@
 # 🎯 Priospace
 
-A beautiful, modern productivity app that combines task management with Pomodoro timer functionality, habit tracking, yearly goal management, and real-time collaboration. Built with Next.js, React, and Framer Motion for smooth animations and premium user experience.
+A beautiful, modern productivity app that combines task management with Pomodoro timer functionality, habit tracking, yearly and quarterly goal management, and real-time collaboration. Built with Next.js, React, and Framer Motion for smooth animations and premium user experience.
 
-![Todo Timer](https://img.shields.io/badge/Version-3.1-blue)
+![Todo Timer](https://img.shields.io/badge/Version-3.2-blue)
 ![Next.js](https://img.shields.io/badge/Next.js-15-black)
 ![React](https://img.shields.io/badge/React-19-blue)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)
@@ -48,6 +48,16 @@ A beautiful, modern productivity app that combines task management with Pomodoro
 - Goal completion status with audio feedback
 - Rich descriptions and custom categorization with tags
 - Edit, update progress, and manage goals seamlessly
+- **Automatic progress calculation** from associated quarterly goals
+
+### 📊 Quarterly Goals (NEW)
+- Break down yearly goals into quarterly milestones
+- Set and track quarterly objectives with Q1-Q4 filtering
+- **Link quarterly goals to yearly goals** with customizable weight distribution
+- **Automatic yearly goal progress calculation** based on weighted quarterly progress
+- Visual progress tracking and completion status
+- Year and quarter navigation for easy filtering
+- Support for independent quarterly goals (not linked to yearly goals)
 
 ### 🎨 Beautiful UI/UX
 - Modern bottom-sheet modal design
@@ -182,6 +192,23 @@ priospace/
 3. Click on grid squares to mark daily completions
 4. View your 90-day progress with GitHub-style visualization
 5. Navigate between habit overview and individual habit views
+
+### Managing Yearly Goals
+1. Access **Yearly Goals** from the desktop sidebar or using `Ctrl/Cmd + G`.
+2. Click **"Add New Goal"** to create a new annual objective.
+3. Enter goal title, description, target year, and optionally select a tag.
+4. Update progress by clicking the percentage or marking as complete.
+5. Use the navigation arrows to switch between different years.
+6. **Link to quarterly goals**: When quarterly goals are linked, progress is automatically calculated.
+
+### Managing Quarterly Goals
+1. Access **Quarterly Goals** from the desktop sidebar or using `Ctrl/Cmd + Q`.
+2. Click **"Add New Quarterly Goal"** to create a new quarterly objective.
+3. Enter goal title, description, select year and quarter (Q1-Q4).
+4. **Link to yearly goal** (optional): Select a yearly goal from the same year and set a weight percentage (0-100).
+5. Update progress manually - linked yearly goals will automatically recalculate their progress.
+6. Use year and quarter navigation to filter goals by specific periods.
+7. **Weight distribution**: When multiple quarterly goals link to the same yearly goal, their weights are automatically normalized if the total exceeds 100%.
 
 ### Theme Selection
 1. Access **Settings** to browse 4 beautiful themes
