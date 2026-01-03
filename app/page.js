@@ -6,7 +6,7 @@ import { DayNightCycle, AnimatedNumber } from "@/components/day-night-cycle";
 import { AnimatedYear } from "@/components/animated-year";
 import { WeeklyCalendar } from "@/components/weekly-calender";
 import { TaskList } from "@/components/task-list";
-import { Timer, Plus, BarChart3, Settings, CheckCircle } from "lucide-react";
+import { Timer, Plus, BarChart3, Settings, CheckCircle, Target } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AddTaskModal } from "@/components/add-task-modal";
 import { TaskOptionsModal } from "@/components/task-options-modal";
@@ -16,6 +16,7 @@ import { TimerModal } from "@/components/timer-modal";
 import { SettingsModal } from "@/components/settings-modal";
 import { IntroScreen } from "@/components/intro-screen";
 import { WebRTCShareModal } from "@/components/webrtc-share-modal";
+import { YearlyGoalsTracker } from "@/components/yearly-goals-tracker";
 import { dataStorage } from "@/lib/storage";
 import "@/lib/debug"; // 导入调试工具
 
@@ -25,8 +26,10 @@ export default function Home() {
   const [dailyTasks, setDailyTasks] = useState({});
   const [customTags, setCustomTags] = useState([]);
   const [habits, setHabits] = useState([]);
+  const [yearlyGoals, setYearlyGoals] = useState([]);
   const [showTimer, setShowTimer] = useState(false);
   const [showHabits, setShowHabits] = useState(false);
+  const [showYearlyGoals, setShowYearlyGoals] = useState(false);
   const [showAddTask, setShowAddTask] = useState(false);
   const [showTaskOptions, setShowTaskOptions] = useState(false);
   const [showAddSubtask, setShowAddSubtask] = useState(false);
@@ -105,6 +108,16 @@ export default function Home() {
         loadDataItem("customTags", setCustomTags);
         loadDataItem("habits", setHabits);
         
+        loadDataItem("yearlyGoals", setYearlyGoals, (savedGoals) => {
+          // Convert date strings back to Date objects
+          return savedGoals.map((goal) => ({
+            ...goal,
+            createdAt: new Date(goal.createdAt),
+            progress: goal.progress || 0,
+            completed: !!goal.completed,
+          }));
+        });
+        
         // 数据加载完成，允许备份
         setIsDataLoaded(true);
         console.log('✅ All data loaded successfully');
@@ -156,6 +169,7 @@ export default function Home() {
       if (isEscapePressed) {
         setShowAddTask(false);
         setShowHabits(false);
+        setShowYearlyGoals(false);
         setShowTimer(false);
         setShowSettings(false);
         setShowTaskOptions(false);
@@ -166,6 +180,7 @@ export default function Home() {
       if (
         showAddTask ||
         showHabits ||
+        showYearlyGoals ||
         showTimer ||
         showSettings ||
         showTaskOptions ||
@@ -186,6 +201,10 @@ export default function Home() {
           case "h": // Ctrl/Cmd + H for Habits
             event.preventDefault();
             setShowHabits(true);
+            break;
+          case "g": // Ctrl/Cmd + G for Yearly Goals
+            event.preventDefault();
+            setShowYearlyGoals(true);
             break;
           case "c": // Ctrl/Cmd + C for Timer
             event.preventDefault();
@@ -209,6 +228,7 @@ export default function Home() {
   }, [
     showAddTask,
     showHabits,
+    showYearlyGoals,
     showTimer,
     showSettings,
     showTaskOptions,
@@ -247,6 +267,12 @@ export default function Home() {
       dataStorage.setLocalData("habits", habits);
     }
   }, [habits, isDataLoaded]);
+
+  useEffect(() => {
+    if (isDataLoaded) {
+      dataStorage.setLocalData("yearlyGoals", yearlyGoals);
+    }
+  }, [yearlyGoals, isDataLoaded]);
 
   const getDateString = (date) => {
     const year = date.getFullYear();
@@ -901,10 +927,11 @@ export default function Home() {
       dailyTasks,
       customTags,
       habits,
+      yearlyGoals,
       darkMode,
       theme,
       exportDate: new Date().toISOString(),
-      version: "3.0", // Update version for subtasks support
+      version: "3.1", // Update version for yearly goals support
     };
     const dataStr = JSON.stringify(data, null, 2);
     const dataBlob = new Blob([dataStr], { type: "application/json" });
@@ -959,6 +986,16 @@ export default function Home() {
             }
             if (data.customTags) setCustomTags(data.customTags);
             if (data.habits) setHabits(data.habits);
+            if (data.yearlyGoals) {
+              // Convert date strings back to Date objects
+              const convertedGoals = data.yearlyGoals.map((goal) => ({
+                ...goal,
+                createdAt: new Date(goal.createdAt),
+                progress: goal.progress || 0,
+                completed: !!goal.completed,
+              }));
+              setYearlyGoals(convertedGoals);
+            }
             if (typeof data.darkMode === "boolean") setDarkMode(data.darkMode);
             if (data.theme) setTheme(data.theme);
             alert("Data imported successfully!");
@@ -1195,6 +1232,16 @@ export default function Home() {
                     <BarChart3 className="h-5 w-5 mr-2 group-hover:scale-110 transition-transform" />
                     <span className="font-extrabold">Habits</span>
                   </Button>
+
+                  <Button
+                    onClick={() => setShowYearlyGoals(true)}
+                    variant="outline"
+                    size="lg"
+                    className="w-full h-12 font-bold hover:bg-accent/50 group hover:scale-[1.02] transition-all duration-200 rounded-2xl"
+                  >
+                    <Target className="h-5 w-5 mr-2 group-hover:scale-110 transition-transform" />
+                    <span className="font-extrabold">Goals</span>
+                  </Button>
                 </div>
 
                 {/* Keyboard shortcuts hint */}
@@ -1202,6 +1249,7 @@ export default function Home() {
                   <div>⌘/Ctrl + A → Add Task</div>
                   <div>⌘/Ctrl + C → Timer</div>
                   <div>⌘/Ctrl + H → Habits</div>
+                  <div>⌘/Ctrl + G → Goals</div>
                   <div>⌘/Ctrl + X → Settings</div>
                   <div>Esc → Close Modal</div>
                 </div>
@@ -1311,6 +1359,16 @@ export default function Home() {
                 customTags={customTags}
                 onClose={() => setShowHabits(false)}
                 onUpdateHabits={setHabits}
+                onAddCustomTag={addCustomTag}
+              />
+            )}
+
+            {showYearlyGoals && (
+              <YearlyGoalsTracker
+                yearlyGoals={yearlyGoals}
+                customTags={customTags}
+                onClose={() => setShowYearlyGoals(false)}
+                onUpdateGoals={setYearlyGoals}
                 onAddCustomTag={addCustomTag}
               />
             )}

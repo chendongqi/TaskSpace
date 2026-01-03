@@ -11,7 +11,8 @@
 │       ├── theme.json     # 主题配置
 │       ├── dailyTasks.json # 任务数据
 │       ├── customTags.json # 自定义标签
-│       └── habits.json    # 习惯数据
+│       ├── habits.json    # 习惯数据
+│       └── yearlyGoals.json # 年度目标数据
 └── .gitkeep               # 保持目录结构
 ```
 

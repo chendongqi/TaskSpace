@@ -1,8 +1,8 @@
 # 🎯 Priospace
 
-A beautiful, modern productivity app that combines task management with Pomodoro timer functionality, habit tracking, and real-time collaboration. Built with Next.js, React, and Framer Motion for smooth animations and premium user experience.
+A beautiful, modern productivity app that combines task management with Pomodoro timer functionality, habit tracking, yearly goal management, and real-time collaboration. Built with Next.js, React, and Framer Motion for smooth animations and premium user experience.
 
-![Todo Timer](https://img.shields.io/badge/Version-2.1-blue)
+![Todo Timer](https://img.shields.io/badge/Version-3.1-blue)
 ![Next.js](https://img.shields.io/badge/Next.js-15-black)
 ![React](https://img.shields.io/badge/React-19-blue)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)
@@ -40,6 +40,14 @@ A beautiful, modern productivity app that combines task management with Pomodoro
 - Individual habit tracking with daily completion
 - Interactive grid for marking habit completion
 - Comprehensive habit analytics and progress visualization
+
+### 🎯 Yearly Goals (NEW)
+- Set and track long-term yearly goals
+- Visual progress tracking with percentage indicators
+- Year-based filtering and organization
+- Goal completion status with audio feedback
+- Rich descriptions and custom categorization with tags
+- Edit, update progress, and manage goals seamlessly
 
 ### 🎨 Beautiful UI/UX
 - Modern bottom-sheet modal design

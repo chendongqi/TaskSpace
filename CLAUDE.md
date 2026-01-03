@@ -116,8 +116,23 @@ npm run tauri       # Tauri 相关命令
 ### 数据结构
 - 任务支持分层子任务结构
 - 习惯跟踪使用日期网格数据
+- 年度目标支持进度追踪和年份筛选
 - 主题配置存储在 CSS 变量中
 - 所有数据通过 LocalStorage 持久化
+
+#### 年度目标数据结构
+```javascript
+{
+  id: string,           // 唯一标识符（时间戳生成）
+  title: string,        // 目标标题（必填）
+  description: string,  // 目标描述（可选）
+  year: number,         // 目标年份（必填）
+  completed: boolean,   // 完成状态（默认 false）
+  progress: number,     // 完成进度 0-100（默认 0）
+  tag: string,          // 标签 ID（可选）
+  createdAt: Date       // 创建时间
+}
+```
 
 ## Docker 部署指南
 
