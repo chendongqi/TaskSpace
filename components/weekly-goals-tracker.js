@@ -24,6 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { PriorityBadge, PrioritySelector } from "@/components/priority-badge";
 
 const PRESET_COLORS = [
   "#ef4444", // red
@@ -69,6 +70,7 @@ export function WeeklyGoalsTracker({
   onUpdateWeeklyGoal,
   onDeleteWeeklyGoal,
   onAddCustomTag,
+  dailyTasks = {}, // 新增：用于计算关联任务数量
 }) {
   const currentDate = new Date();
   const currentGlobalWeek = getWeekNumber(currentDate);
@@ -91,6 +93,7 @@ export function WeeklyGoalsTracker({
   const [selectedQuarterlyGoal, setSelectedQuarterlyGoal] = useState("none");
   const [goalWeight, setGoalWeight] = useState(10);
   const [selectedTag, setSelectedTag] = useState("none");
+  const [selectedPriority, setSelectedPriority] = useState(undefined);
   const [newTagName, setNewTagName] = useState("");
   const [selectedColor, setSelectedColor] = useState(PRESET_COLORS[0]);
 
@@ -113,9 +116,22 @@ export function WeeklyGoalsTracker({
     }
   };
 
+  // 计算关联到指定周目标的任务数量
+  const getLinkedTasksCount = (goalId) => {
+    if (!dailyTasks || Object.keys(dailyTasks).length === 0) return 0;
+    
+    let count = 0;
+    Object.values(dailyTasks).forEach(dayTasks => {
+      if (Array.isArray(dayTasks)) {
+        count += dayTasks.filter(task => task.weeklyGoalId === goalId).length;
+      }
+    });
+    return count;
+  };
+
   // Filter goals by current year, quarter, and week
   const filteredGoals = weeklyGoals.filter(
-    (goal) => goal.year === currentYear && goal.quarter === currentQuarter && goal.week === currentWeek
+    (goal) => goal && goal.id && goal.id !== "" && goal.year === currentYear && goal.quarter === currentQuarter && goal.week === currentWeek
   );
   
   // Sort goals: incomplete first, then completed
@@ -158,6 +174,7 @@ export function WeeklyGoalsTracker({
       quarterlyGoalId: selectedQuarterlyGoal && selectedQuarterlyGoal !== "none" ? selectedQuarterlyGoal : undefined,
       weight: selectedQuarterlyGoal && selectedQuarterlyGoal !== "none" ? Math.max(0, Math.min(100, goalWeight)) : undefined,
       tag: selectedTag && selectedTag !== "none" ? selectedTag : undefined,
+      priority: selectedPriority || undefined,
       createdAt: editingGoal?.createdAt || new Date(),
     };
 
@@ -182,6 +199,7 @@ export function WeeklyGoalsTracker({
     setSelectedQuarterlyGoal("none");
     setGoalWeight(10);
     setSelectedTag("none");
+    setSelectedPriority(undefined);
   };
 
   const startEdit = (goal) => {
@@ -194,6 +212,7 @@ export function WeeklyGoalsTracker({
     setSelectedQuarterlyGoal(goal.quarterlyGoalId || "none");
     setGoalWeight(goal.weight || 10);
     setSelectedTag(goal.tag || "none");
+    setSelectedPriority(goal.priority || undefined);
     setShowAddForm(true);
   };
 
@@ -624,6 +643,17 @@ export function WeeklyGoalsTracker({
                     </div>
                   </div>
 
+                  <div>
+                    <label className="text-sm font-semibold mb-2 block">
+                      优先级
+                    </label>
+                    <PrioritySelector
+                      value={selectedPriority}
+                      onChange={setSelectedPriority}
+                      allowNone={true}
+                    />
+                  </div>
+
                   {showAddTag && (
                     <div className="bg-background/50 rounded-lg p-4 space-y-3">
                       <Input
@@ -711,6 +741,7 @@ export function WeeklyGoalsTracker({
                     onEdit={startEdit}
                     onDelete={deleteGoal}
                     variants={itemVariants}
+                    linkedTasksCount={getLinkedTasksCount(goal.id)}
                   />
                 ))}
               </motion.div>
@@ -731,6 +762,7 @@ function WeeklyGoalCard({
   onEdit,
   onDelete,
   variants,
+  linkedTasksCount = 0, // 新增：关联任务数量
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [progressInput, setProgressInput] = useState(goal.progress || 0);
@@ -787,17 +819,31 @@ function WeeklyGoalCard({
                   </div>
                 )}
               </div>
-              <h3
-                className={`font-extrabold text-base ${
-                  goal.completed ? "line-through" : ""
-                }`}
-              >
-                {goal.title}
-              </h3>
+              <div className="flex items-center gap-2 mb-1">
+                <h3
+                  className={`font-extrabold text-base ${
+                    goal.completed ? "line-through" : ""
+                  }`}
+                >
+                  {goal.title}
+                </h3>
+                {goal.priority && <PriorityBadge priority={goal.priority} size="sm" />}
+              </div>
               {goal.description && (
                 <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
                   {goal.description}
                 </p>
+              )}
+              {/* 关联任务数量显示 */}
+              {linkedTasksCount > 0 && (
+                <motion.div 
+                  initial={{ opacity: 0, y: -5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mt-2 flex items-center gap-1 text-xs text-primary font-semibold"
+                >
+                  <Check className="h-3 w-3" />
+                  <span>{linkedTasksCount} 个关联任务</span>
+                </motion.div>
               )}
             </div>
             <div className="flex gap-1 flex-shrink-0">

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Plus, Tag, Check, Calendar } from "lucide-react";
+import { X, Plus, Tag, Check, Calendar, Target } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -12,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { PrioritySelector } from "@/components/priority-badge";
 
 const PRESET_COLORS = [
   "#ef4444", // red
@@ -32,10 +33,13 @@ export function AddTaskModal({
   customTags,
   onAddCustomTag,
   selectedDate, // Current selected date from parent
+  weeklyGoals = [], // Available weekly goals
 }) {
   const [taskTitle, setTaskTitle] = useState("");
   const [selectedTag, setSelectedTag] = useState("");
   const [taskDate, setTaskDate] = useState(selectedDate || new Date());
+  const [selectedPriority, setSelectedPriority] = useState(undefined);
+  const [selectedWeeklyGoal, setSelectedWeeklyGoal] = useState("");
   const [showAddTag, setShowAddTag] = useState(false);
   const [newTagName, setNewTagName] = useState("");
   const [selectedColor, setSelectedColor] = useState(PRESET_COLORS[0]);
@@ -97,7 +101,13 @@ export function AddTaskModal({
 
   const handleSubmit = () => {
     if (taskTitle.trim()) {
-      onAddTask(taskTitle.trim(), selectedTag || undefined, taskDate);
+      onAddTask(
+        taskTitle.trim(), 
+        selectedTag || undefined, 
+        taskDate,
+        selectedPriority,
+        selectedWeeklyGoal || undefined
+      );
       onClose();
     }
   };
@@ -499,6 +509,52 @@ export function AddTaskModal({
                 </motion.div>
               )}
             </AnimatePresence>
+
+            {/* Priority Selection */}
+            <motion.div variants={itemVariants} className="space-y-3">
+              <label className="text-sm font-extrabold text-gray-700 dark:text-gray-200 uppercase tracking-wider flex items-center gap-2">
+                <Target className="h-4 w-4" />
+                Priority (Optional)
+              </label>
+              <PrioritySelector
+                value={selectedPriority}
+                onChange={setSelectedPriority}
+                allowNone={true}
+              />
+            </motion.div>
+
+            {/* Weekly Goal Selection */}
+            {weeklyGoals && weeklyGoals.length > 0 && (
+              <motion.div variants={itemVariants} className="space-y-3">
+                <label className="text-sm font-extrabold text-gray-700 dark:text-gray-200 uppercase tracking-wider flex items-center gap-2">
+                  <Target className="h-4 w-4" />
+                  Link to Weekly Goal (Optional)
+                </label>
+                <Select value={selectedWeeklyGoal} onValueChange={setSelectedWeeklyGoal}>
+                  <SelectTrigger className="border-2 border-gray-300 focus:border-primary/70 font-extrabold dark:border-gray-600 dark:focus:border-primary/80 dark:bg-gray-800 dark:text-gray-100 rounded-xl py-3">
+                    <SelectValue placeholder="Choose a weekly goal (optional)" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl border-gray-200 dark:bg-gray-800 dark:border-gray-700">
+                    {weeklyGoals
+                      .filter((goal) => goal && goal.id && goal.id !== "") // 过滤掉无效的目标
+                      .map((goal) => (
+                        <SelectItem
+                          key={goal.id}
+                          value={goal.id}
+                          className="rounded-lg dark:hover:bg-gray-700 dark:text-gray-100"
+                        >
+                          <div className="flex flex-col">
+                            <span className="font-extrabold">{goal.title}</span>
+                            <span className="text-xs text-gray-500 dark:text-gray-400">
+                              Week {goal.week}, Q{goal.quarter} {goal.year}
+                            </span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </motion.div>
+            )}
 
             {/* Action Buttons */}
             <motion.div variants={itemVariants} className="flex gap-3 pt-4">

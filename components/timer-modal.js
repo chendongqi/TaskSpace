@@ -599,7 +599,7 @@ export function TimerModal({
   };
 
   // Filter to show all incomplete tasks and habits
-  const incompleteItems = tasks.filter((item) => !item.completed);
+  const incompleteItems = tasks.filter((item) => item && item.id && item.id !== "" && !item.completed);
 
   // Animation variants
   const backdropVariants = {

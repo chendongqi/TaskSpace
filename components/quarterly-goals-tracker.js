@@ -24,6 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { PriorityBadge, PrioritySelector } from "@/components/priority-badge";
 
 const PRESET_COLORS = [
   "#ef4444", // red
@@ -73,6 +74,7 @@ export function QuarterlyGoalsTracker({
   const [selectedYearlyGoal, setSelectedYearlyGoal] = useState("none");
   const [goalWeight, setGoalWeight] = useState(25);
   const [selectedTag, setSelectedTag] = useState("none");
+  const [selectedPriority, setSelectedPriority] = useState(undefined);
   const [newTagName, setNewTagName] = useState("");
   const [selectedColor, setSelectedColor] = useState(PRESET_COLORS[0]);
 
@@ -97,7 +99,7 @@ export function QuarterlyGoalsTracker({
 
   // Filter goals by current year and quarter
   const filteredGoals = quarterlyGoals.filter(
-    (goal) => goal.year === currentYear && goal.quarter === currentQuarter
+    (goal) => goal && goal.id && goal.id !== "" && goal.year === currentYear && goal.quarter === currentQuarter
   );
   
   // Sort goals: incomplete first, then completed
@@ -139,6 +141,7 @@ export function QuarterlyGoalsTracker({
       yearlyGoalId: selectedYearlyGoal && selectedYearlyGoal !== "none" ? selectedYearlyGoal : undefined,
       weight: selectedYearlyGoal && selectedYearlyGoal !== "none" ? Math.max(0, Math.min(100, goalWeight)) : undefined,
       tag: selectedTag && selectedTag !== "none" ? selectedTag : undefined,
+      priority: selectedPriority || undefined,
       createdAt: editingGoal?.createdAt || new Date(),
     };
 
@@ -173,6 +176,7 @@ export function QuarterlyGoalsTracker({
     setSelectedYearlyGoal("none");
     setGoalWeight(25);
     setSelectedTag("none");
+    setSelectedPriority(undefined);
     setShowAddForm(false);
     setEditingGoal(null);
   };
@@ -186,6 +190,7 @@ export function QuarterlyGoalsTracker({
     setSelectedYearlyGoal(goal.yearlyGoalId || "none");
     setGoalWeight(goal.weight || 25);
     setSelectedTag(goal.tag || "none");
+    setSelectedPriority(goal.priority || undefined);
     setShowAddForm(true);
   };
 
@@ -198,6 +203,7 @@ export function QuarterlyGoalsTracker({
     setSelectedYearlyGoal("none");
     setGoalWeight(25);
     setSelectedTag("none");
+    setSelectedPriority(undefined);
     setShowAddForm(false);
   };
 
@@ -614,6 +620,17 @@ export function QuarterlyGoalsTracker({
                     </div>
                   </div>
 
+                  <div>
+                    <label className="text-sm font-semibold mb-2 block">
+                      优先级
+                    </label>
+                    <PrioritySelector
+                      value={selectedPriority}
+                      onChange={setSelectedPriority}
+                      allowNone={true}
+                    />
+                  </div>
+
                   {showAddTag && (
                     <div className="bg-background/50 rounded-lg p-4 space-y-3">
                       <Input
@@ -785,13 +802,16 @@ function QuarterlyGoalCard({
                   </div>
                 )}
               </div>
-              <h3
-                className={`font-extrabold text-lg ${
-                  goal.completed ? "line-through" : ""
-                }`}
-              >
-                {goal.title}
-              </h3>
+              <div className="flex items-center gap-2 mb-1">
+                <h3
+                  className={`font-extrabold text-lg ${
+                    goal.completed ? "line-through" : ""
+                  }`}
+                >
+                  {goal.title}
+                </h3>
+                {goal.priority && <PriorityBadge priority={goal.priority} size="sm" />}
+              </div>
               {goal.description && (
                 <p className="text-sm text-muted-foreground mt-1">
                   {goal.description}
@@ -844,7 +864,7 @@ function QuarterlyGoalCard({
               </button>
             )}
             {goal.autoCalculated && (
-              <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-semibold bg-orange-500/10 text-orange-500">
+              <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-semibold bg-muted text-muted-foreground">
                 <Target className="h-3 w-3" />
                 <span>自动计算</span>
               </div>

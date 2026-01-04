@@ -21,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { PriorityBadge, PrioritySelector } from "@/components/priority-badge";
 
 const PRESET_COLORS = [
   "#ef4444", // red
@@ -44,6 +45,7 @@ export function HabitTracker({
 }) {
   const [newHabitName, setNewHabitName] = useState("");
   const [selectedTag, setSelectedTag] = useState("");
+  const [selectedPriority, setSelectedPriority] = useState(undefined);
   const [showAddForm, setShowAddForm] = useState(false);
   const [showAddTag, setShowAddTag] = useState(false);
   const [newTagName, setNewTagName] = useState("");
@@ -88,10 +90,12 @@ export function HabitTracker({
         name: newHabitName.trim(),
         completedDates: [],
         tag: selectedTag || undefined,
+        priority: selectedPriority || undefined,
       };
       onUpdateHabits([...habits, newHabit]);
       setNewHabitName("");
       setSelectedTag("");
+      setSelectedPriority(undefined);
       setShowAddForm(false);
       setShowNavigation(true);
       setCurrentHabitIndex(habits.length); // Switch to the new habit
@@ -382,19 +386,21 @@ export function HabitTracker({
                         <SelectValue placeholder="Choose a category (optional)" />
                       </SelectTrigger>
                       <SelectContent className="rounded-xl border-gray-200 dark:bg-gray-800 dark:border-gray-700">
-                        {customTags.map((tag) => (
-                          <SelectItem
-                            key={tag.id}
-                            value={tag.id}
-                            className="rounded-lg dark:hover:bg-gray-700 dark:text-gray-100"
-                          >
-                            <div className="flex items-center gap-3">
-                              <motion.div
-                                className="w-3 h-3 rounded-full"
-                                style={{ backgroundColor: tag.color }}
-                                whileHover={{ scale: 1.2 }}
-                              />
-                              <span className="font-extrabold">{tag.name}</span>
+                        {customTags
+                          .filter((tag) => tag && tag.id && tag.id !== "") // 过滤掉无效的标签
+                          .map((tag) => (
+                            <SelectItem
+                              key={tag.id}
+                              value={tag.id}
+                              className="rounded-lg dark:hover:bg-gray-700 dark:text-gray-100"
+                            >
+                              <div className="flex items-center gap-3">
+                                <motion.div
+                                  className="w-3 h-3 rounded-full"
+                                  style={{ backgroundColor: tag.color }}
+                                  whileHover={{ scale: 1.2 }}
+                                />
+                                <span className="font-extrabold">{tag.name}</span>
                             </div>
                           </SelectItem>
                         ))}
@@ -419,6 +425,18 @@ export function HabitTracker({
                         {showAddTag ? "Cancel" : "Create New Category"}
                       </Button>
                     </motion.div>
+                  </motion.div>
+
+                  {/* Priority Selection */}
+                  <motion.div variants={itemVariants} className="space-y-3">
+                    <label className="text-sm font-extrabold text-gray-700 dark:text-gray-200 uppercase tracking-wider">
+                      Priority (Optional)
+                    </label>
+                    <PrioritySelector
+                      value={selectedPriority}
+                      onChange={setSelectedPriority}
+                      allowNone={true}
+                    />
                   </motion.div>
 
                   {/* Add New Tag Form */}
@@ -525,6 +543,7 @@ export function HabitTracker({
                           setShowAddForm(false);
                           setNewHabitName("");
                           setSelectedTag("");
+                          setSelectedPriority(undefined);
                           setShowAddTag(false);
                           setNewTagName("");
                           setShowNavigation(true);
@@ -593,9 +612,14 @@ export function HabitTracker({
                       </>
                     ) : (
                       <>
-                        <h3 className="font-extrabold text-gray-900 dark:text-gray-100 truncate px-2">
-                          {currentHabit?.name}
-                        </h3>
+                        <div className="flex items-center justify-center gap-2 px-2">
+                          {currentHabit?.priority && (
+                            <PriorityBadge priority={currentHabit.priority} size="sm" />
+                          )}
+                          <h3 className="font-extrabold text-gray-900 dark:text-gray-100 truncate">
+                            {currentHabit?.name}
+                          </h3>
+                        </div>
                         {currentHabitTag && (
                           <div className="flex items-center justify-center gap-1 mt-1">
                             <div

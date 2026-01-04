@@ -10,8 +10,10 @@ import {
   ChevronDown,
   ChevronRight,
   Plus,
+  Target,
 } from "lucide-react";
 import { formatFocusTime } from "@/utils/time";
+import { PriorityBadge } from "@/components/priority-badge";
 
 export function TaskList({
   tasks,
@@ -20,6 +22,7 @@ export function TaskList({
   onDeleteTask,
   onTaskClick,
   onAddSubtask,
+  weeklyGoals = [], // 新增：周目标数组
 }) {
   // Use simple object instead of Set for better state management
   const [expandedTasks, setExpandedTasks] = useState({});
@@ -130,11 +133,26 @@ export function TaskList({
   const regularTasks = mainTasks.filter((task) => !task.isHabit);
   const habitTasks = mainTasks.filter((task) => task.isHabit);
 
-  // Sort tasks: incomplete first, then completed
+  // Sort tasks: incomplete first, then by priority (P0 > P1 > P2 > P3 > none), then completed
   const sortTasksByCompletion = (taskList) => {
+    const priorityOrder = { P0: 0, P1: 1, P2: 2, P3: 3 };
+    
     return [...taskList].sort((a, b) => {
-      if (a.completed === b.completed) return 0;
-      return a.completed ? 1 : -1;
+      // First sort by completion status (incomplete first)
+      if (a.completed !== b.completed) {
+        return a.completed ? 1 : -1;
+      }
+      
+      // Then sort by priority (higher priority first)
+      const aPriority = a.priority ? priorityOrder[a.priority] : 999;
+      const bPriority = b.priority ? priorityOrder[b.priority] : 999;
+      
+      if (aPriority !== bPriority) {
+        return aPriority - bPriority;
+      }
+      
+      // If same priority and completion status, keep original order (by creation time)
+      return 0;
     });
   };
 
@@ -276,6 +294,7 @@ export function TaskList({
                         isExpanded={expandedTasks[task.id] || false}
                         expandedTasks={expandedTasks}
                         level={0}
+                        weeklyGoals={weeklyGoals}
                       />
                     ))}
                   </motion.div>
@@ -348,6 +367,7 @@ export function TaskList({
                         isExpanded={expandedTasks[task.id] || false}
                         expandedTasks={expandedTasks}
                         level={0}
+                        weeklyGoals={weeklyGoals}
                       />
                     ))}
                   </motion.div>
@@ -391,6 +411,7 @@ function TaskItem({
   expandedTasks,
   level = 0,
   isSubtask = false,
+  weeklyGoals = [], // 新增：周目标数组
 }) {
   const tagInfo = getTagInfo(task.tag);
   const subtasks = task.subtasks || [];
@@ -404,6 +425,11 @@ function TaskItem({
   const displayFocusTime = isSubtask
     ? task.focusTime || 0
     : getTotalFocusTime(task);
+  
+  // 查找关联的周目标
+  const linkedWeeklyGoal = task.weeklyGoalId 
+    ? weeklyGoals.find(g => g.id === task.weeklyGoalId)
+    : null;
 
   // Sort subtasks: incomplete first, then completed
   const sortedSubtasks = [...subtasks].sort((a, b) => {
@@ -451,48 +477,71 @@ function TaskItem({
             )}
 
             <div className="flex-1">
-              <div className="flex items-center gap-2 mb-1">
-                {tagInfo && (
-                  <div className="flex items-center gap-1.5">
-                    <div
-                      className="w-2 h-2 rounded-full"
-                      style={{ backgroundColor: tagInfo.color }}
-                    />
-                    <span className="text-xs text-gray-500 dark:text-gray-400 font-bold">
-                      {tagInfo.name}
-                    </span>
-                  </div>
-                )}
+              {/* 第一行：TAG + 周目标关联 + 子任务进度（横向排列）*/}
+              {(tagInfo || linkedWeeklyGoal || hasSubtasks) && (
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                  {/* TAG */}
+                  {tagInfo && (
+                    <div className="flex items-center gap-1">
+                      <div
+                        className="w-2 h-2 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: tagInfo.color }}
+                      />
+                      <span className="text-xs text-gray-500 dark:text-gray-400 font-bold leading-none">
+                        {tagInfo.name}
+                      </span>
+                    </div>
+                  )}
 
-                {/* Subtask progress indicator */}
-                {hasSubtasks && !isSubtask && (
-                  <motion.div
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    className={`px-2 py-0.5 text-xs font-bold rounded-full ${
-                      completedSubtasks === subtasks.length
-                        ? "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400"
-                        : "bg-primary/10 dark:bg-primary/20 text-primary dark:text-primary"
-                    }`}
-                  >
-                    {completedSubtasks}/{subtasks.length}
-                  </motion.div>
-                )}
-              </div>
+                  {/* 周目标关联指示器 */}
+                  {linkedWeeklyGoal && (
+                    <motion.div 
+                      initial={{ scale: 0.9, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      transition={{ duration: 0.15 }}
+                      className="flex items-center gap-1 text-primary font-semibold"
+                      title={`关联到周目标: ${linkedWeeklyGoal.title}`}
+                    >
+                      <Calendar className="h-3 w-3 flex-shrink-0" />
+                      <span className="text-xs leading-none">{linkedWeeklyGoal.title}</span>
+                    </motion.div>
+                  )}
 
+                  {/* 子任务进度指示器 */}
+                  {hasSubtasks && !isSubtask && (
+                    <motion.div
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      className={`px-2 py-0.5 text-xs font-bold rounded-full leading-none ${
+                        completedSubtasks === subtasks.length
+                          ? "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400"
+                          : "bg-primary/10 dark:bg-primary/20 text-primary dark:text-primary"
+                      }`}
+                    >
+                      {completedSubtasks}/{subtasks.length}
+                    </motion.div>
+                  )}
+                </div>
+              )}
+
+              {/* 第二行：优先级 + 任务标题 */}
               <motion.span
                 animate={{
                   opacity: task.completed ? 0.7 : 1,
                 }}
-                className={`block font-extrabold text-lg ${
+                className={`block font-extrabold text-lg flex items-center gap-2 ${
                   task.completed
                     ? "line-through text-gray-600 dark:text-gray-100"
                     : "text-gray-600 dark:text-gray-100"
                 }`}
               >
-                {task.title}
+                {task.priority && (
+                  <PriorityBadge priority={task.priority} size="sm" />
+                )}
+                <span className="flex-1">{task.title}</span>
               </motion.span>
 
+              {/* 第三行：时间统计（如果有的话）*/}
               {(displayTimeSpent > 0 || displayFocusTime > 0) && (
                 <div className="flex items-center gap-3 mt-1 text-xs text-gray-500 dark:text-gray-400">
                   {displayTimeSpent > 0 && (

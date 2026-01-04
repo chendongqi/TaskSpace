@@ -45,6 +45,7 @@ export default function Home() {
   const [showIntroScreen, setShowIntroScreen] = useState(true);
   const [parentTaskForSubtask, setParentTaskForSubtask] = useState(null);
   const [showWebRTCShare, setShowWebRTCShare] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false); // 移动端更多菜单
   const [isDataLoaded, setIsDataLoaded] = useState(false); // 防止初始化时触发备份
 
   // Load data from storage on mount
@@ -764,6 +765,7 @@ export default function Home() {
       isHabit: true,
       habitId: habit.id,
       tag: habit.tag,
+      priority: habit.priority, // 添加优先级字段
       subtasks: [], // Habits don't have subtasks
     }));
   };
@@ -1167,7 +1169,7 @@ export default function Home() {
     }
   };
 
-  const addTask = (title, tagId, taskDate = selectedDate) => {
+  const addTask = (title, tagId, taskDate = selectedDate, priority, weeklyGoalId) => {
     const dateString = getDateString(taskDate);
     const currentTasks = dailyTasks[dateString] || [];
     const newTask = {
@@ -1178,6 +1180,8 @@ export default function Home() {
       focusTime: 0,
       createdAt: taskDate,
       tag: tagId,
+      priority: priority || undefined, // 添加优先级字段
+      weeklyGoalId: weeklyGoalId || undefined, // 添加周目标关联字段
       subtasks: [], // Initialize empty subtasks array
       subtasksExpanded: false, // Initialize expansion state
     };
@@ -1259,6 +1263,13 @@ export default function Home() {
         // Update habit tag
         const updatedHabits = habits.map((h) =>
           h.id === habitId ? { ...h, tag: updates.tag } : h
+        );
+        setHabits(updatedHabits);
+      }
+      if (habit && updates.priority !== undefined) {
+        // Update habit priority
+        const updatedHabits = habits.map((h) =>
+          h.id === habitId ? { ...h, priority: updates.priority } : h
         );
         setHabits(updatedHabits);
       }
@@ -1591,52 +1602,65 @@ export default function Home() {
                   onDeleteTask={deleteTask}
                   onTaskClick={handleTaskClick}
                   onAddSubtask={handleAddSubtask}
+                  weeklyGoals={weeklyGoals}
                 />
               </div>
 
               <div className="p-4 border-t border-dashed absolute bottom-0 left-1/2 -translate-x-1/2 bg-background/70 backdrop-blur-sm w-full z-50">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-around">
                   <Button
                     onClick={() => setShowTimer(true)}
                     variant="ghost"
                     size="lg"
-                    className="flex-1 flex items-center justify-center px-4 sm:px-8 gap-2 font-extrabold hover:bg-accent/50 group dark:text-white"
+                    className="flex flex-col items-center justify-center px-2 gap-1 font-extrabold hover:bg-accent/50 group dark:text-white min-w-0"
                   >
-                    <div className="group-hover:scale-110 transition-transform  flex items-center gap-2">
+                    <div className="group-hover:scale-110 transition-transform flex flex-col items-center gap-0.5">
                       <Timer className="h-5 w-5" />
-                      <span>Timer</span>
+                      <span className="text-xs">Timer</span>
                     </div>
-                  </Button>
-
-                  <Button
-                    onClick={() => setShowAddTask(true)}
-                    size="lg"
-                    className="mx-4 rounded-full w-12 h-12 px-4 sm:px-8 bg-primary hover:bg-primary/90 group hover:scale-110 transition-transform [&_svg]:size-5"
-                  >
-                    <Plus className="h-5 w-5 group-hover:scale-110 transition-transform" />
                   </Button>
 
                   <Button
                     onClick={() => setShowHabits(true)}
                     variant="ghost"
                     size="lg"
-                    className="flex-1 flex items-center justify-center px-4 sm:px-8 gap-2 font-extrabold group hover:bg-accent/50 dark:text-white"
+                    className="flex flex-col items-center justify-center px-2 gap-1 font-extrabold group hover:bg-accent/50 dark:text-white min-w-0"
                   >
-                    <div className="group-hover:scale-110 transition-transform  flex items-center gap-2">
+                    <div className="group-hover:scale-110 transition-transform flex flex-col items-center gap-0.5">
                       <BarChart3 className="h-5 w-5" />
-                      <span>Habits</span>
+                      <span className="text-xs">Habits</span>
                     </div>
+                  </Button>
+
+                  <Button
+                    onClick={() => setShowAddTask(true)}
+                    size="lg"
+                    className="mx-2 rounded-full w-14 h-14 bg-primary hover:bg-primary/90 group hover:scale-110 transition-transform [&_svg]:size-6 p-0 min-w-0"
+                  >
+                    <Plus className="h-6 w-6 group-hover:scale-110 transition-transform" />
                   </Button>
 
                   <Button
                     onClick={() => setShowWeeklyGoals(true)}
                     variant="ghost"
                     size="lg"
-                    className="flex-1 flex items-center justify-center px-4 sm:px-8 gap-2 font-extrabold group hover:bg-accent/50 dark:text-white"
+                    className="flex flex-col items-center justify-center px-2 gap-1 font-extrabold group hover:bg-accent/50 dark:text-white min-w-0"
                   >
-                    <div className="group-hover:scale-110 transition-transform  flex items-center gap-2">
+                    <div className="group-hover:scale-110 transition-transform flex flex-col items-center gap-0.5">
                       <Calendar className="h-5 w-5" />
-                      <span>Weekly</span>
+                      <span className="text-xs">Weekly</span>
+                    </div>
+                  </Button>
+
+                  <Button
+                    onClick={() => setShowMobileMenu(true)}
+                    variant="ghost"
+                    size="lg"
+                    className="flex flex-col items-center justify-center px-2 gap-1 font-extrabold group hover:bg-accent/50 dark:text-white min-w-0"
+                  >
+                    <div className="group-hover:scale-110 transition-transform flex flex-col items-center gap-0.5">
+                      <Target className="h-5 w-5" />
+                      <span className="text-xs">More</span>
                     </div>
                   </Button>
                 </div>
@@ -1802,6 +1826,7 @@ export default function Home() {
                       onDeleteTask={deleteTask}
                       onTaskClick={handleTaskClick}
                       onAddSubtask={handleAddSubtask}
+                      weeklyGoals={weeklyGoals}
                     />
                   </div>
                 </div>
@@ -1843,6 +1868,7 @@ export default function Home() {
                 customTags={customTags}
                 onAddCustomTag={addCustomTag}
                 selectedDate={selectedDate}
+                weeklyGoals={weeklyGoals}
               />
             )}
 
@@ -1878,6 +1904,7 @@ export default function Home() {
                 currentActualDate={new Date()}
                 onAddSubtask={handleAddSubtask}
                 allTasks={allTasks}
+                weeklyGoals={weeklyGoals}
               />
             )}
 
@@ -1936,6 +1963,7 @@ export default function Home() {
                 onUpdateWeeklyGoal={updateWeeklyGoal}
                 onDeleteWeeklyGoal={deleteWeeklyGoal}
                 onAddCustomTag={addCustomTag}
+                dailyTasks={dailyTasks}
               />
             )}
 
@@ -1948,6 +1976,91 @@ export default function Home() {
                 onToggleTask={toggleTask}
               />
             )}
+
+            {/* Mobile More Menu */}
+            <AnimatePresence>
+              {showMobileMenu && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] lg:hidden"
+                  onClick={() => setShowMobileMenu(false)}
+                >
+                  <motion.div
+                    initial={{ y: "100%" }}
+                    animate={{ y: 0 }}
+                    exit={{ y: "100%" }}
+                    transition={{ type: "spring", damping: 30, stiffness: 300 }}
+                    className="absolute bottom-0 left-0 right-0 bg-background rounded-t-3xl p-6 pb-8 shadow-2xl"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {/* Drag Handle */}
+                    <div className="w-12 h-1.5 bg-gray-300 dark:bg-gray-600 rounded-full mx-auto mb-6" />
+                    
+                    <div className="space-y-2">
+                      {/* Yearly Goals */}
+                      <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => {
+                          setShowYearlyGoals(true);
+                          setShowMobileMenu(false);
+                        }}
+                        className="w-full flex items-center gap-4 p-4 rounded-xl hover:bg-accent/50 transition-colors"
+                      >
+                        <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                          <Target className="h-6 w-6 text-primary" />
+                        </div>
+                        <div className="flex-1 text-left">
+                          <div className="font-extrabold text-lg text-gray-900 dark:text-gray-100">Yearly Goals</div>
+                          <div className="text-sm text-gray-500 dark:text-gray-400">年度目标管理</div>
+                        </div>
+                      </motion.button>
+
+                      {/* Quarterly Goals */}
+                      <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => {
+                          setShowQuarterlyGoals(true);
+                          setShowMobileMenu(false);
+                        }}
+                        className="w-full flex items-center gap-4 p-4 rounded-xl hover:bg-accent/50 transition-colors"
+                      >
+                        <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                          <TrendingUp className="h-6 w-6 text-primary" />
+                        </div>
+                        <div className="flex-1 text-left">
+                          <div className="font-extrabold text-lg text-gray-900 dark:text-gray-100">Quarterly Goals</div>
+                          <div className="text-sm text-gray-500 dark:text-gray-400">季度目标管理</div>
+                        </div>
+                      </motion.button>
+
+                      {/* Settings */}
+                      <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => {
+                          setShowSettings(true);
+                          setShowMobileMenu(false);
+                        }}
+                        className="w-full flex items-center gap-4 p-4 rounded-xl hover:bg-accent/50 transition-colors"
+                      >
+                        <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                          <Settings className="h-6 w-6 text-primary" />
+                        </div>
+                        <div className="flex-1 text-left">
+                          <div className="font-extrabold text-lg text-gray-900 dark:text-gray-100">Settings</div>
+                          <div className="text-sm text-gray-500 dark:text-gray-400">应用设置</div>
+                        </div>
+                      </motion.button>
+                    </div>
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </AnimatePresence>
         </div>
       )}

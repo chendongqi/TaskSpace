@@ -25,6 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { PriorityBadge, PrioritySelector } from "@/components/priority-badge";
 
 const PRESET_COLORS = [
   "#ef4444", // red
@@ -59,6 +60,7 @@ export function YearlyGoalsTracker({
   const [goalDescription, setGoalDescription] = useState("");
   const [goalYear, setGoalYear] = useState(currentYear);
   const [selectedTag, setSelectedTag] = useState("none");
+  const [selectedPriority, setSelectedPriority] = useState(undefined);
   const [newTagName, setNewTagName] = useState("");
   const [selectedColor, setSelectedColor] = useState(PRESET_COLORS[0]);
 
@@ -82,7 +84,7 @@ export function YearlyGoalsTracker({
   };
 
   // Filter goals by current year
-  const currentYearGoals = yearlyGoals.filter((goal) => goal.year === currentYear);
+  const currentYearGoals = yearlyGoals.filter((goal) => goal && goal.id && goal.id !== "" && goal.year === currentYear);
   
   // Sort goals: incomplete first, then completed
   const sortedGoals = [...currentYearGoals].sort((a, b) => {
@@ -107,6 +109,7 @@ export function YearlyGoalsTracker({
       completed: editingGoal?.completed || false,
       progress: editingGoal?.progress || 0,
       tag: selectedTag && selectedTag !== "none" ? selectedTag : undefined,
+      priority: selectedPriority || undefined,
       createdAt: editingGoal?.createdAt || new Date(),
     };
 
@@ -126,6 +129,7 @@ export function YearlyGoalsTracker({
     setGoalDescription("");
     setGoalYear(currentYear);
     setSelectedTag("");
+    setSelectedPriority(undefined);
     setShowAddForm(false);
     setEditingGoal(null);
   };
@@ -136,6 +140,7 @@ export function YearlyGoalsTracker({
     setGoalDescription(goal.description || "");
     setGoalYear(goal.year);
     setSelectedTag(goal.tag || "none");
+    setSelectedPriority(goal.priority || undefined);
     setShowAddForm(true);
   };
 
@@ -145,6 +150,7 @@ export function YearlyGoalsTracker({
     setGoalDescription("");
     setGoalYear(currentYear);
     setSelectedTag("none");
+    setSelectedPriority(undefined);
     setShowAddForm(false);
   };
 
@@ -463,6 +469,17 @@ export function YearlyGoalsTracker({
                     </div>
                   </div>
 
+                  <div>
+                    <label className="text-sm font-semibold mb-2 block">
+                      优先级
+                    </label>
+                    <PrioritySelector
+                      value={selectedPriority}
+                      onChange={setSelectedPriority}
+                      allowNone={true}
+                    />
+                  </div>
+
                   {showAddTag && (
                     <div className="bg-background/50 rounded-lg p-4 space-y-3">
                       <Input
@@ -615,13 +632,16 @@ function GoalCard({
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2 mb-2">
             <div className="flex-1">
-              <h3
-                className={`font-extrabold text-lg ${
-                  goal.completed ? "line-through" : ""
-                }`}
-              >
-                {goal.title}
-              </h3>
+              <div className="flex items-center gap-2 mb-1">
+                <h3
+                  className={`font-extrabold text-lg ${
+                    goal.completed ? "line-through" : ""
+                  }`}
+                >
+                  {goal.title}
+                </h3>
+                {goal.priority && <PriorityBadge priority={goal.priority} size="sm" />}
+              </div>
               {goal.description && (
                 <p className="text-sm text-muted-foreground mt-1">
                   {goal.description}
