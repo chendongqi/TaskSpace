@@ -14,10 +14,13 @@ A beautiful, modern productivity app that combines task management with Pomodoro
 ### 📝 Task Management
 - Create, edit, and manage tasks and habits
 - **Subtasks support** - Break down complex tasks into manageable subtasks
+- **Priority levels (P0-P3)** - Organize tasks by importance with visual priority badges
+- **Weekly goal linking** - Connect tasks to weekly goals for better planning
 - Organize tasks with custom color-coded categories
 - Mark tasks as complete with smooth animations
 - Hold-to-complete gesture for mobile-friendly interaction
 - Separate sections for regular tasks and habits
+- **Automatic priority sorting** - Tasks automatically sorted by priority (P0 > P1 > P2 > P3)
 
 ### 🌐 Real-time Collaboration (NEW)
 - **WebRTC-powered real-time collaboration** for shared workspaces
@@ -40,6 +43,7 @@ A beautiful, modern productivity app that combines task management with Pomodoro
 - Individual habit tracking with daily completion
 - Interactive grid for marking habit completion
 - Comprehensive habit analytics and progress visualization
+- **Priority levels** - Set priority for habits to focus on what matters most
 
 ### 🎯 Yearly Goals (NEW)
 - Set and track long-term yearly goals
@@ -49,6 +53,7 @@ A beautiful, modern productivity app that combines task management with Pomodoro
 - Rich descriptions and custom categorization with tags
 - Edit, update progress, and manage goals seamlessly
 - **Automatic progress calculation** from associated quarterly goals
+- **Priority levels (P0-P3)** - Prioritize your most important yearly objectives
 
 ### 📊 Quarterly Goals (NEW)
 - Break down yearly goals into quarterly milestones
@@ -58,6 +63,15 @@ A beautiful, modern productivity app that combines task management with Pomodoro
 - Visual progress tracking and completion status
 - Year and quarter navigation for easy filtering
 - Support for independent quarterly goals (not linked to yearly goals)
+- **Priority levels (P0-P3)** - Focus on critical quarterly objectives
+
+### 📅 Weekly Goals (NEW)
+- Create weekly objectives to break down quarterly goals
+- **Link weekly goals to quarterly goals** with weight-based progress tracking
+- Week-by-week navigation and organization
+- **Connect daily tasks to weekly goals** - Link tasks for focused execution
+- Visual progress tracking and linked task count
+- **Priority levels (P0-P3)** - Prioritize your weekly focus areas
 
 ### 🎨 Beautiful UI/UX
 - Modern bottom-sheet modal design
@@ -85,8 +99,8 @@ A beautiful, modern productivity app that combines task management with Pomodoro
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/anoyrc/priospace.git
-   cd priospace
+   git clone https://github.com/chendongqi/TaskSpace.git
+   cd TaskSpace
    ```
 
 2. **Install dependencies**
@@ -165,10 +179,21 @@ priospace/
 ### Creating Tasks with Subtasks
 1. Click the **"Add Task"** button
 2. Enter your task title in the borderless input
-3. Optionally select or create a category with custom colors
-4. **Add subtasks** by clicking the subtask option
-5. Break down complex tasks into manageable chunks
-6. Click **"Add Task"** to save
+3. **Set priority (optional)** - Choose from P0 (highest) to P3 (lowest) or leave as "None"
+4. **Link to weekly goal (optional)** - Connect the task to a weekly objective for better planning
+5. Optionally select or create a category with custom colors
+6. **Add subtasks** by clicking the subtask option
+7. Break down complex tasks into manageable chunks
+8. Click **"Add Task"** to save
+
+**Priority Levels:**
+- **P0 (①)** - Highest priority: Urgent and important tasks
+- **P1 (②)** - High priority: Important tasks
+- **P2 (③)** - Medium priority: Normal tasks
+- **P3 (④)** - Low priority: Secondary tasks
+- **None** - No priority assigned
+
+Tasks with priority are automatically sorted (P0 appears first), helping you focus on what matters most.
 
 ### Real-time Collaboration
 1. Start the WebRTC server: `cd webrtc-server && npm run start`
@@ -197,18 +222,30 @@ priospace/
 1. Access **Yearly Goals** from the desktop sidebar or using `Ctrl/Cmd + G`.
 2. Click **"Add New Goal"** to create a new annual objective.
 3. Enter goal title, description, target year, and optionally select a tag.
-4. Update progress by clicking the percentage or marking as complete.
-5. Use the navigation arrows to switch between different years.
-6. **Link to quarterly goals**: When quarterly goals are linked, progress is automatically calculated.
+4. **Set priority (optional)** - Choose P0-P3 to focus on your most important goals.
+5. Update progress by clicking the percentage or marking as complete.
+6. Use the navigation arrows to switch between different years.
+7. **Link to quarterly goals**: When quarterly goals are linked, progress is automatically calculated.
+
+### Managing Weekly Goals
+1. Access **Weekly Goals** from the desktop sidebar or using `Ctrl/Cmd + W`.
+2. Click **"Add New Weekly Goal"** to create a weekly objective.
+3. Enter goal title, description, select year, quarter, and week number.
+4. **Set priority (optional)** - Choose P0-P3 to prioritize your weekly focus.
+5. **Link to quarterly goal** (optional): Connect to a quarterly goal with weight distribution.
+6. **Link daily tasks**: When creating tasks, select the weekly goal to associate them.
+7. Track linked task count on the weekly goal card.
+8. Use week navigation to browse different weeks.
 
 ### Managing Quarterly Goals
 1. Access **Quarterly Goals** from the desktop sidebar or using `Ctrl/Cmd + Q`.
 2. Click **"Add New Quarterly Goal"** to create a new quarterly objective.
 3. Enter goal title, description, select year and quarter (Q1-Q4).
-4. **Link to yearly goal** (optional): Select a yearly goal from the same year and set a weight percentage (0-100).
-5. Update progress manually - linked yearly goals will automatically recalculate their progress.
-6. Use year and quarter navigation to filter goals by specific periods.
-7. **Weight distribution**: When multiple quarterly goals link to the same yearly goal, their weights are automatically normalized if the total exceeds 100%.
+4. **Set priority (optional)** - Choose P0-P3 to prioritize your quarterly objectives.
+5. **Link to yearly goal** (optional): Select a yearly goal from the same year and set a weight percentage (0-100).
+6. Update progress manually - linked yearly goals will automatically recalculate their progress.
+7. Use year and quarter navigation to filter goals by specific periods.
+8. **Weight distribution**: When multiple quarterly goals link to the same yearly goal, their weights are automatically normalized if the total exceeds 100%.
 
 ### Theme Selection
 1. Access **Settings** to browse 4 beautiful themes
@@ -323,7 +360,7 @@ For production deployment of the WebRTC server:
 
 ## 🐛 Bug Reports & Feature Requests
 
-Please use the [GitHub Issues](https://github.com/anoyrc/priospace/issues) page to:
+Please use the [GitHub Issues](https://github.com/chendongqi/TaskSpace/issues) page to:
 - Report bugs with detailed reproduction steps
 - Request new features with clear use cases
 - Discuss improvements and suggestions
@@ -335,6 +372,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 Acknowledgments
 
+- **[Anoy Roy Chowdhury (@Anoyroyc)](https://x.com/Anoyroyc)** - Original [Priospace](https://github.com/AnoyRC/priospace) project author. This project is built upon the excellent foundation of Priospace.
 - **shadcn/ui** for the beautiful component library
 - **Framer Motion** for smooth animations
 - **Lucide** for the icon set
@@ -348,16 +386,17 @@ If you find this project helpful, consider:
 
 - ⭐ Starring the repository
 - 🐛 Reporting bugs or requesting features
-- ☕ [Buying me a coffee](https://coff.ee/anoy)
-- 🐦 Following [@Anoyroyc](https://x.com/Anoyroyc) on Twitter
+- 🙏 Supporting the [original Priospace project](https://github.com/AnoyRC/priospace)
 
 ---
 
 <div align="center">
 
-### 🎯 vibecoded
+### 🎯 TaskSpace
 
-**Coded with ❤️ by [Anoy Roy Chowdhury](https://x.com/Anoyroyc)**
+**Enhanced version with Docker support and priority management**
+
+Modified with ❤️ by [Wonder Lab](https://home.wonlab.top)
 
 *Focus • Track • Achieve • Collaborate*
 
