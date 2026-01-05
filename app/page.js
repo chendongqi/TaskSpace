@@ -1738,17 +1738,37 @@ export default function Home() {
                 />
               </div>
 
-              <div className="flex-1 overflow-hidden">
-                <TaskList
-                  tasks={allTasks}
-                  customTags={customTags}
-                  onToggleTask={toggleTask}
-                  onDeleteTask={deleteTask}
-                  onTaskClick={handleTaskClick}
-                  onAddSubtask={handleAddSubtask}
-                  weeklyGoals={weeklyGoals}
-                  yearlyGoals={yearlyGoals}
-                />
+              <div className="flex-1 overflow-hidden relative">
+                <div className="absolute top-0 left-0 h-full w-full overflow-auto hide-scroll">
+                  <div className="px-0 mt-[4px]">
+                    <TaskList
+                      tasks={allTasks}
+                      customTags={customTags}
+                      onToggleTask={toggleTask}
+                      onDeleteTask={deleteTask}
+                      onTaskClick={handleTaskClick}
+                      onAddSubtask={handleAddSubtask}
+                      weeklyGoals={weeklyGoals}
+                      yearlyGoals={yearlyGoals}
+                      noPaddingBottom={true}
+                    />
+                    
+                    {/* Backlog Section */}
+                    <TaskList
+                      tasks={backlogTasks}
+                      customTags={customTags}
+                      onToggleTask={toggleBacklogTask}
+                      onDeleteTask={deleteBacklogTask}
+                      onTaskClick={handleTaskClick}
+                      onAddSubtask={handleAddSubtask}
+                      weeklyGoals={weeklyGoals}
+                      yearlyGoals={yearlyGoals}
+                      isBacklog={true}
+                      title="BACKLOG"
+                      noPaddingTop={true}
+                    />
+                  </div>
+                </div>
               </div>
 
               <div className="p-4 border-t border-dashed absolute bottom-0 left-1/2 -translate-x-1/2 bg-background/70 backdrop-blur-sm w-full z-50">
