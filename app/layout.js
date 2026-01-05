@@ -1,6 +1,7 @@
 import "./globals.css";
 
 import { Nunito } from "next/font/google";
+import { Toaster } from "sonner";
 
 const nunito = Nunito({
   subsets: ["latin"],
@@ -21,6 +22,7 @@ export default function RootLayout({ children }) {
         suppressHydrationWarning
       >
         {children}
+        <Toaster position="top-center" richColors closeButton />
       </body>
     </html>
   );

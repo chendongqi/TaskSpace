@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "sonner";
 import {
   X,
   Plus,
@@ -15,6 +16,7 @@ import {
   TrendingUp,
   Link as LinkIcon,
   Calculator,
+  AlertCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -63,6 +65,12 @@ export function YearlyGoalsTracker({
   const [selectedPriority, setSelectedPriority] = useState(undefined);
   const [newTagName, setNewTagName] = useState("");
   const [selectedColor, setSelectedColor] = useState(PRESET_COLORS[0]);
+  
+  // 确认对话框状态
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [confirmAction, setConfirmAction] = useState(null);
+  const [confirmMessage, setConfirmMessage] = useState("");
+  const [confirmTitle, setConfirmTitle] = useState("");
 
   // Audio ref for completion sound
   const completeAudioRef = useRef(null);
@@ -154,11 +162,32 @@ export function YearlyGoalsTracker({
     setShowAddForm(false);
   };
 
-  const deleteGoal = (goalId) => {
-    if (confirm("确定要删除这个目标吗？")) {
-      const updatedGoals = yearlyGoals.filter((goal) => goal.id !== goalId);
-      onUpdateGoals(updatedGoals);
+  // 通用确认对话框
+  const showConfirm = (title, message, onConfirm) => {
+    setConfirmTitle(title);
+    setConfirmMessage(message);
+    setConfirmAction(() => onConfirm);
+    setShowConfirmDialog(true);
+  };
+
+  const handleConfirm = () => {
+    if (confirmAction) {
+      confirmAction();
     }
+    setShowConfirmDialog(false);
+    setConfirmAction(null);
+  };
+
+  const deleteGoal = (goalId) => {
+    showConfirm(
+      "确定要删除这个年度目标吗？",
+      "此操作无法撤销。",
+      () => {
+        const updatedGoals = yearlyGoals.filter((goal) => goal.id !== goalId);
+        onUpdateGoals(updatedGoals);
+        toast.success("年度目标已删除");
+      }
+    );
   };
 
   const updateProgress = (goalId, newProgress) => {
@@ -577,6 +606,60 @@ export function YearlyGoalsTracker({
           </div>
         </div>
       </motion.div>
+
+      {/* 确认对话框 */}
+      <AnimatePresence>
+        {showConfirmDialog && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+            onClick={() => setShowConfirmDialog(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="bg-background rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-border"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-6">
+                <div className="flex items-start gap-4 mb-4">
+                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                    <AlertCircle className="h-5 w-5 text-primary" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-extrabold mb-1">
+                      {confirmTitle}
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      {confirmMessage}
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="flex gap-3 mt-6">
+                  <Button
+                    onClick={() => setShowConfirmDialog(false)}
+                    variant="outline"
+                    className="flex-1 rounded-xl font-semibold h-11"
+                  >
+                    取消
+                  </Button>
+                  <Button
+                    onClick={handleConfirm}
+                    className="flex-1 rounded-xl font-semibold h-11"
+                  >
+                    确定
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "sonner";
 import {
   X,
   Plus,
@@ -14,6 +15,8 @@ import {
   Check,
   TrendingUp,
   Link as LinkIcon,
+  Copy,
+  AlertCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -84,6 +87,7 @@ export function WeeklyGoalsTracker({
   
   const [showAddForm, setShowAddForm] = useState(false);
   const [showAddTag, setShowAddTag] = useState(false);
+  const [showCopyForm, setShowCopyForm] = useState(false);
   const [editingGoal, setEditingGoal] = useState(null);
   
   // Form states
@@ -103,6 +107,17 @@ export function WeeklyGoalsTracker({
   const [filterYear, setFilterYear] = useState(currentYear);
   const [filterQuarter, setFilterQuarter] = useState(currentQuarter);
   const [enableFilter, setEnableFilter] = useState(false);
+  
+  // 复制功能状态
+  const [copySourceYear, setCopySourceYear] = useState(currentYear);
+  const [copySourceQuarter, setCopySourceQuarter] = useState(currentQuarter);
+  const [copySourceWeek, setCopySourceWeek] = useState(currentWeek > 1 ? currentWeek - 1 : 1);
+  
+  // 确认对话框状态
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [confirmAction, setConfirmAction] = useState(null);
+  const [confirmMessage, setConfirmMessage] = useState("");
+  const [confirmTitle, setConfirmTitle] = useState("");
 
   // Audio ref for completion sound
   const completeAudioRef = useRef(null);
@@ -229,15 +244,98 @@ export function WeeklyGoalsTracker({
     setEditingGoal(null);
   };
 
+  // 通用确认对话框
+  const showConfirm = (title, message, onConfirm) => {
+    setConfirmTitle(title);
+    setConfirmMessage(message);
+    setConfirmAction(() => onConfirm);
+    setShowConfirmDialog(true);
+  };
+
+  const handleConfirm = () => {
+    if (confirmAction) {
+      confirmAction();
+    }
+    setShowConfirmDialog(false);
+    setConfirmAction(null);
+  };
+
   const deleteGoal = (goalId) => {
     const goal = weeklyGoals.find((g) => g.id === goalId);
     const hasQuarterlyGoal = goal?.quarterlyGoalId;
     const message = hasQuarterlyGoal
-      ? "确定要删除这个周目标吗？删除后，关联的季度目标进度将重新计算。"
-      : "确定要删除这个周目标吗？";
+      ? "删除后，关联的季度目标进度将重新计算。"
+      : "此操作无法撤销。";
     
-    if (confirm(message)) {
-      onDeleteWeeklyGoal(goalId);
+    showConfirm(
+      "确定要删除这个周目标吗？",
+      message,
+      () => {
+        onDeleteWeeklyGoal(goalId);
+        toast.success("周目标已删除", {
+          description: hasQuarterlyGoal ? "季度目标进度已更新" : undefined,
+        });
+      }
+    );
+  };
+
+  const copyGoalsFromWeek = () => {
+    // 获取源周的目标
+    const sourceGoals = weeklyGoals.filter(
+      (g) => g.year === copySourceYear && g.quarter === copySourceQuarter && g.week === copySourceWeek
+    );
+
+    if (sourceGoals.length === 0) {
+      toast.error("无法复制", {
+        description: `${copySourceYear}年 第${copySourceWeek}周 没有目标可复制`,
+      });
+      return;
+    }
+
+    // 检查当前周是否已有目标
+    const currentWeekGoals = weeklyGoals.filter(
+      (g) => g.year === currentYear && g.quarter === currentQuarter && g.week === currentWeek
+    );
+
+    const doCopy = () => {
+      let copiedCount = 0;
+      sourceGoals.forEach((sourceGoal) => {
+        const newGoal = {
+          id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+          title: sourceGoal.title,
+          description: sourceGoal.description || "",
+          year: currentYear,
+          quarter: currentQuarter,
+          week: currentWeek,
+          quarterlyGoalId: sourceGoal.quarterlyGoalId || undefined,
+          weight: sourceGoal.weight || 10,
+          progress: 0,
+          completed: false,
+          tag: sourceGoal.tag || undefined,
+          priority: sourceGoal.priority || undefined,
+          createdAt: new Date(),
+        };
+        
+        onAddWeeklyGoal(newGoal);
+        copiedCount++;
+        
+        setTimeout(() => {}, 10);
+      });
+
+      toast.success("复制成功", {
+        description: `已从 ${copySourceYear}年 第${copySourceWeek}周 复制 ${copiedCount} 个目标`,
+      });
+      setShowCopyForm(false);
+    };
+
+    if (currentWeekGoals.length > 0) {
+      showConfirm(
+        "当前周已有目标",
+        `当前周已有 ${currentWeekGoals.length} 个目标，复制操作会添加新目标。`,
+        doCopy
+      );
+    } else {
+      doCopy();
     }
   };
 
@@ -491,7 +589,111 @@ export function WeeklyGoalsTracker({
 
           {/* Content */}
           <div className="overflow-y-auto max-h-[calc(90vh-180px)] px-6 py-4">
-            {showAddForm ? (
+            {showCopyForm ? (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-accent/30 rounded-2xl p-6 mb-4"
+              >
+                <h3 className="text-lg font-extrabold mb-4">从其他周复制目标</h3>
+                
+                <div className="space-y-4">
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <label className="text-sm font-semibold mb-2 block">
+                        年份
+                      </label>
+                      <Select value={copySourceYear.toString()} onValueChange={(val) => setCopySourceYear(parseInt(val))}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Array.from(new Set(weeklyGoals.map(g => g.year)))
+                            .sort((a, b) => b - a)
+                            .map(year => (
+                              <SelectItem key={year} value={year.toString()}>
+                                {year}年
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div>
+                      <label className="text-sm font-semibold mb-2 block">
+                        季度
+                      </label>
+                      <Select value={copySourceQuarter.toString()} onValueChange={(val) => setCopySourceQuarter(parseInt(val))}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {QUARTERS.map((q) => (
+                            <SelectItem key={q.value} value={q.value.toString()}>
+                              {q.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div>
+                      <label className="text-sm font-semibold mb-2 block">
+                        周数
+                      </label>
+                      <Input
+                        type="number"
+                        min="1"
+                        max="53"
+                        value={copySourceWeek}
+                        onChange={(e) => setCopySourceWeek(parseInt(e.target.value) || 1)}
+                        className="w-full"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="bg-muted/50 rounded-lg p-3">
+                    <p className="text-sm text-muted-foreground">
+                      {(() => {
+                        const sourceGoals = weeklyGoals.filter(
+                          (g) => g.year === copySourceYear && g.quarter === copySourceQuarter && g.week === copySourceWeek
+                        );
+                        const currentGoals = weeklyGoals.filter(
+                          (g) => g.year === currentYear && g.quarter === currentQuarter && g.week === currentWeek
+                        );
+                        
+                        return (
+                          <>
+                            <span className="font-semibold">源周：</span>
+                            {copySourceYear}年 第{copySourceWeek}周 ({sourceGoals.length} 个目标)
+                            <br />
+                            <span className="font-semibold">目标周：</span>
+                            {currentYear}年 第{currentWeek}周 (当前 {currentGoals.length} 个目标)
+                          </>
+                        );
+                      })()}
+                    </p>
+                  </div>
+
+                  <div className="flex gap-2 pt-2">
+                    <Button
+                      onClick={() => setShowCopyForm(false)}
+                      variant="outline"
+                      className="flex-1 rounded-xl font-extrabold"
+                    >
+                      取消
+                    </Button>
+                    <Button
+                      onClick={copyGoalsFromWeek}
+                      className="flex-1 rounded-xl font-extrabold"
+                    >
+                      <Copy className="h-4 w-4 mr-2" />
+                      开始复制
+                    </Button>
+                  </div>
+                </div>
+              </motion.div>
+            ) : showAddForm ? (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -817,14 +1019,24 @@ export function WeeklyGoalsTracker({
                 </div>
               </motion.div>
             ) : (
-              <Button
-                onClick={() => setShowAddForm(true)}
-                className="w-full mb-4 h-12 rounded-2xl font-extrabold"
-                size="lg"
-              >
-                <Plus className="h-5 w-5 mr-2" />
-                添加本周目标
-              </Button>
+              <div className="space-y-2 mb-4">
+                <Button
+                  onClick={() => setShowAddForm(true)}
+                  className="w-full h-12 rounded-2xl font-extrabold"
+                  size="lg"
+                >
+                  <Plus className="h-5 w-5 mr-2" />
+                  添加本周目标
+                </Button>
+                <Button
+                  onClick={() => setShowCopyForm(true)}
+                  variant="outline"
+                  className="w-full h-10 rounded-xl font-semibold"
+                >
+                  <Copy className="h-4 w-4 mr-2" />
+                  从其他周复制
+                </Button>
+              </div>
             )}
 
             {/* Goals List */}
@@ -864,6 +1076,60 @@ export function WeeklyGoalsTracker({
           </div>
         </div>
       </motion.div>
+
+      {/* 确认对话框 */}
+      <AnimatePresence>
+        {showConfirmDialog && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+            onClick={() => setShowConfirmDialog(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="bg-background rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-border"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-6">
+                <div className="flex items-start gap-4 mb-4">
+                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                    <AlertCircle className="h-5 w-5 text-primary" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-extrabold mb-1">
+                      {confirmTitle}
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      {confirmMessage}
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="flex gap-3 mt-6">
+                  <Button
+                    onClick={() => setShowConfirmDialog(false)}
+                    variant="outline"
+                    className="flex-1 rounded-xl font-semibold h-11"
+                  >
+                    取消
+                  </Button>
+                  <Button
+                    onClick={handleConfirm}
+                    className="flex-1 rounded-xl font-semibold h-11"
+                  >
+                    确定
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 }

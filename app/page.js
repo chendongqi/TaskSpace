@@ -2,11 +2,12 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect } from "react";
+import { toast } from "sonner";
 import { DayNightCycle, AnimatedNumber } from "@/components/day-night-cycle";
 import { AnimatedYear } from "@/components/animated-year";
 import { WeeklyCalendar } from "@/components/weekly-calender";
 import { TaskList } from "@/components/task-list";
-import { Timer, Plus, BarChart3, Settings, CheckCircle, Target, TrendingUp, Calendar } from "lucide-react";
+import { Timer, Plus, BarChart3, Settings, CheckCircle, Target, TrendingUp, Calendar, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AddTaskModal } from "@/components/add-task-modal";
 import { TaskOptionsModal } from "@/components/task-options-modal";
@@ -48,6 +49,28 @@ export default function Home() {
   const [showWebRTCShare, setShowWebRTCShare] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false); // 移动端更多菜单
   const [isDataLoaded, setIsDataLoaded] = useState(false); // 防止初始化时触发备份
+  
+  // 确认对话框状态
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [confirmAction, setConfirmAction] = useState(null);
+  const [confirmMessage, setConfirmMessage] = useState("");
+  const [confirmTitle, setConfirmTitle] = useState("");
+
+  // 通用确认对话框
+  const showConfirm = (title, message, onConfirm) => {
+    setConfirmTitle(title);
+    setConfirmMessage(message);
+    setConfirmAction(() => onConfirm);
+    setShowConfirmDialog(true);
+  };
+
+  const handleConfirm = () => {
+    if (confirmAction) {
+      confirmAction();
+    }
+    setShowConfirmDialog(false);
+    setConfirmAction(null);
+  };
 
   // Load data from storage on mount
   useEffect(() => {
@@ -1059,22 +1082,20 @@ export default function Home() {
       }
 
       if (settingsToUpdate.length > 0) {
-        const updateSettings = confirm(
-          `Do you want to update your ${settingsToUpdate.join(
-            " and "
-          )} settings to match the imported data?`
+        showConfirm(
+          "更新设置",
+          `是否要更新你的 ${settingsToUpdate.join(" 和 ")} 设置以匹配导入的数据？`,
+          () => {
+            if (typeof data.darkMode === "boolean") {
+              setDarkMode(data.darkMode);
+              importStats.updatedSettings.push("dark mode");
+            }
+            if (data.theme) {
+              setTheme(data.theme);
+              importStats.updatedSettings.push("theme");
+            }
+          }
         );
-
-        if (updateSettings) {
-          if (typeof data.darkMode === "boolean") {
-            setDarkMode(data.darkMode);
-            importStats.updatedSettings.push("dark mode");
-          }
-          if (data.theme) {
-            setTheme(data.theme);
-            importStats.updatedSettings.push("theme");
-          }
-        }
       }
 
       // Show detailed import summary
@@ -1102,19 +1123,23 @@ export default function Home() {
         importStats.newHabits;
 
       if (totalChanges === 0 && importStats.updatedSettings.length === 0) {
-        alert(
-          "Sync completed! No new items were found - all data was already in sync."
-        );
+        toast.info("同步完成", {
+          description: "没有发现新项目 - 所有数据已同步",
+        });
       } else {
         const summaryMessage =
           summaryParts.length > 0
-            ? `Sync successful! Merged/Updated: ${summaryParts.join(", ")}.`
-            : "Sync completed!";
-        alert(summaryMessage);
+            ? `合并/更新: ${summaryParts.join(", ")}`
+            : "同步完成!";
+        toast.success("同步成功", {
+          description: summaryMessage,
+        });
       }
     } catch (error) {
       console.error("Import error:", error);
-      alert("Error processing synced data. Please try again.");
+      toast.error("处理同步数据时出错", {
+        description: "请重试",
+      });
     }
   };
 
@@ -1612,10 +1637,12 @@ export default function Home() {
             }
             if (typeof data.darkMode === "boolean") setDarkMode(data.darkMode);
             if (data.theme) setTheme(data.theme);
-            alert("Data imported successfully!");
+            toast.success("数据导入成功");
             setShowSettings(false); // Close settings after import
           } catch (error) {
-            alert("Error importing data. Please check the file format.");
+            toast.error("导入数据时出错", {
+              description: "请检查文件格式",
+            });
           }
         };
         reader.readAsText(file);
@@ -2191,6 +2218,60 @@ export default function Home() {
           </AnimatePresence>
         </div>
       )}
+
+      {/* 确认对话框 */}
+      <AnimatePresence>
+        {showConfirmDialog && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+            onClick={() => setShowConfirmDialog(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="bg-background rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-border"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-6">
+                <div className="flex items-start gap-4 mb-4">
+                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                    <AlertCircle className="h-5 w-5 text-primary" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-extrabold mb-1">
+                      {confirmTitle}
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      {confirmMessage}
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="flex gap-3 mt-6">
+                  <Button
+                    onClick={() => setShowConfirmDialog(false)}
+                    variant="outline"
+                    className="flex-1 rounded-xl font-semibold h-11"
+                  >
+                    取消
+                  </Button>
+                  <Button
+                    onClick={handleConfirm}
+                    className="flex-1 rounded-xl font-semibold h-11"
+                  >
+                    确定
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 }
