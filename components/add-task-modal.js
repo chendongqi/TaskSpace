@@ -41,6 +41,7 @@ function getWeekNumber(date) {
 export function AddTaskModal({
   onClose,
   onAddTask,
+  onAddBacklogTask, // 新增：添加到 Backlog 的回调
   customTags,
   onAddCustomTag,
   selectedDate, // Current selected date from parent
@@ -54,6 +55,7 @@ export function AddTaskModal({
   const [showAddTag, setShowAddTag] = useState(false);
   const [newTagName, setNewTagName] = useState("");
   const [selectedColor, setSelectedColor] = useState(PRESET_COLORS[0]);
+  const [addToBacklog, setAddToBacklog] = useState(false); // 新增：是否添加到 Backlog
   
   // 周目标筛选状态
   const currentDate = new Date();
@@ -118,13 +120,24 @@ export function AddTaskModal({
 
   const handleSubmit = () => {
     if (taskTitle.trim()) {
-      onAddTask(
-        taskTitle.trim(), 
-        selectedTag || undefined, 
-        taskDate,
-        selectedPriority,
-        selectedWeeklyGoal || undefined
-      );
+      if (addToBacklog && onAddBacklogTask) {
+        // 添加到 Backlog
+        onAddBacklogTask(
+          taskTitle.trim(),
+          selectedTag || undefined,
+          selectedPriority,
+          selectedWeeklyGoal || undefined
+        );
+      } else {
+        // 添加到指定日期
+        onAddTask(
+          taskTitle.trim(), 
+          selectedTag || undefined, 
+          taskDate,
+          selectedPriority,
+          selectedWeeklyGoal || undefined
+        );
+      }
       onClose();
     }
   };
@@ -161,9 +174,10 @@ export function AddTaskModal({
     nextWeek.setDate(nextWeek.getDate() + 7);
 
     return [
-      { label: "Today", date: today },
-      { label: "Tomorrow", date: tomorrow },
-      { label: "Next Week", date: nextWeek },
+      { label: "Today", date: today, isBacklog: false },
+      { label: "Tomorrow", date: tomorrow, isBacklog: false },
+      { label: "Next Week", date: nextWeek, isBacklog: false },
+      { label: "Backlog", date: null, isBacklog: true }, // 新增 Backlog 选项
     ];
   };
 
@@ -365,32 +379,47 @@ export function AddTaskModal({
 
               {/* Quick Date Options */}
               <div className="flex gap-2 flex-wrap">
-                {quickDateOptions.map((option) => (
-                  <motion.button
-                    key={option.label}
-                    onClick={() => setTaskDate(option.date)}
-                    className={`px-3 py-2 text-sm font-bold rounded-lg border-2 transition-all duration-200 ${
-                      taskDate.toDateString() === option.date.toDateString()
-                        ? "border-primary bg-primary/10 text-primary"
-                        : "border-gray-300 hover:border-primary/50 dark:border-gray-600 dark:hover:border-primary/50 dark:text-gray-100"
-                    }`}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                  >
-                    {option.label}
-                  </motion.button>
-                ))}
+                {quickDateOptions.map((option) => {
+                  const isSelected = option.isBacklog 
+                    ? addToBacklog 
+                    : (!addToBacklog && option.date && taskDate.toDateString() === option.date.toDateString());
+                  
+                  return (
+                    <motion.button
+                      key={option.label}
+                      onClick={() => {
+                        if (option.isBacklog) {
+                          setAddToBacklog(true);
+                        } else {
+                          setAddToBacklog(false);
+                          setTaskDate(option.date);
+                        }
+                      }}
+                      className={`px-3 py-2 text-sm font-bold rounded-lg border-2 transition-all duration-200 ${
+                        isSelected
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-gray-300 hover:border-primary/50 dark:border-gray-600 dark:hover:border-primary/50 dark:text-gray-100"
+                      }`}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                    >
+                      {option.label}
+                    </motion.button>
+                  );
+                })}
               </div>
 
-              {/* Date Input */}
-              <input
-                type="date"
-                value={formatDateForInput(taskDate)}
-                onChange={(e) =>
-                  setTaskDate(parseDateFromInput(e.target.value))
-                }
-                className="w-full border-2 border-gray-300 focus:border-primary/70 font-extrabold dark:border-gray-600 dark:focus:border-primary/80 dark:bg-gray-800 dark:text-gray-100 rounded-xl py-3 px-4"
-              />
+              {/* Date Input - 只在非 Backlog 模式下显示 */}
+              {!addToBacklog && (
+                <input
+                  type="date"
+                  value={formatDateForInput(taskDate)}
+                  onChange={(e) =>
+                    setTaskDate(parseDateFromInput(e.target.value))
+                  }
+                  className="w-full border-2 border-gray-300 focus:border-primary/70 font-extrabold dark:border-gray-600 dark:focus:border-primary/80 dark:bg-gray-800 dark:text-gray-100 rounded-xl py-3 px-4"
+                />
+              )}
             </motion.div>
 
             {/* Category Selection */}

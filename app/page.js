@@ -2047,6 +2047,7 @@ export default function Home() {
               <AddTaskModal
                 onClose={() => setShowAddTask(false)}
                 onAddTask={addTask}
+                onAddBacklogTask={addBacklogTask}
                 customTags={customTags}
                 onAddCustomTag={addCustomTag}
                 selectedDate={selectedDate}
