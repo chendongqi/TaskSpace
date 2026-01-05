@@ -23,6 +23,8 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  SelectGroup,
+  SelectLabel,
 } from "@/components/ui/select";
 import { PriorityBadge, PrioritySelector } from "@/components/priority-badge";
 
@@ -96,6 +98,11 @@ export function WeeklyGoalsTracker({
   const [selectedPriority, setSelectedPriority] = useState(undefined);
   const [newTagName, setNewTagName] = useState("");
   const [selectedColor, setSelectedColor] = useState(PRESET_COLORS[0]);
+  
+  // 季度目标筛选状态
+  const [filterYear, setFilterYear] = useState(currentYear);
+  const [filterQuarter, setFilterQuarter] = useState(currentQuarter);
+  const [enableFilter, setEnableFilter] = useState(false);
 
   // Audio ref for completion sound
   const completeAudioRef = useRef(null);
@@ -569,17 +576,125 @@ export function WeeklyGoalsTracker({
                     <label className="text-sm font-semibold mb-2 block">
                       关联季度目标（可选）
                     </label>
+                    
+                    {/* 筛选器 */}
+                    <div className="mb-3 flex items-center gap-2">
+                      <motion.button
+                        onClick={() => setEnableFilter(!enableFilter)}
+                        className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                      >
+                        <motion.div
+                          animate={{ rotate: enableFilter ? 90 : 0 }}
+                          transition={{ duration: 0.2 }}
+                        >
+                          <ChevronRight className="h-3 w-3" />
+                        </motion.div>
+                        <span className="font-semibold">筛选</span>
+                      </motion.button>
+                      
+                      <AnimatePresence>
+                        {enableFilter && (
+                          <motion.div
+                            initial={{ opacity: 0, width: 0 }}
+                            animate={{ opacity: 1, width: "auto" }}
+                            exit={{ opacity: 0, width: 0 }}
+                            className="flex items-center gap-2 overflow-hidden"
+                          >
+                            <Select value={filterYear.toString()} onValueChange={(val) => setFilterYear(parseInt(val))}>
+                              <SelectTrigger className="h-7 text-xs w-[80px]">
+                                <SelectValue placeholder="年度" />
+                              </SelectTrigger>
+                              <SelectContent className="rounded-lg">
+                                {Array.from(new Set(quarterlyGoals.filter(g => g && g.year).map(g => g.year)))
+                                  .sort((a, b) => b - a)
+                                  .map(year => (
+                                    <SelectItem key={year} value={year.toString()} className="text-xs">
+                                      {year}年
+                                    </SelectItem>
+                                  ))}
+                              </SelectContent>
+                            </Select>
+                            
+                            <Select value={filterQuarter.toString()} onValueChange={(val) => setFilterQuarter(parseInt(val))}>
+                              <SelectTrigger className="h-7 text-xs w-[70px]">
+                                <SelectValue placeholder="季度" />
+                              </SelectTrigger>
+                              <SelectContent className="rounded-lg max-h-60">
+                                {[1, 2, 3, 4].map(quarter => (
+                                  <SelectItem key={quarter} value={quarter.toString()} className="text-xs">
+                                    Q{quarter}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                    
                     <Select value={selectedQuarterlyGoal} onValueChange={setSelectedQuarterlyGoal}>
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="选择季度目标（可选）" />
                       </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">无关联</SelectItem>
-                        {availableQuarterlyGoals.map((goal) => (
-                          <SelectItem key={goal.id} value={goal.id}>
-                            {goal.title}
-                          </SelectItem>
-                        ))}
+                      <SelectContent className="rounded-xl border-gray-200 dark:bg-gray-800 dark:border-gray-700">
+                        <SelectItem value="none" className="rounded-lg dark:hover:bg-gray-700 dark:text-gray-100">
+                          <span className="font-extrabold">无关联</span>
+                        </SelectItem>
+                        {(() => {
+                          // 按年度-季度分组，并根据筛选条件过滤
+                          const filteredGoals = availableQuarterlyGoals.filter((goal) => {
+                            // 必须有有效的 id, year, 和 quarter
+                            if (!goal || !goal.id || goal.id === "" || !goal.year || !goal.quarter) return false;
+                            if (enableFilter) {
+                              return goal.year === filterYear && goal.quarter === filterQuarter;
+                            }
+                            return true;
+                          });
+                          
+                          const groupedGoals = filteredGoals
+                            .reduce((groups, goal) => {
+                              const key = `${goal.year}-Q${goal.quarter}`;
+                              if (!groups[key]) {
+                                groups[key] = {
+                                  year: goal.year,
+                                  quarter: goal.quarter,
+                                  goals: []
+                                };
+                              }
+                              groups[key].goals.push(goal);
+                              return groups;
+                            }, {});
+
+                          // 按年度-季度排序（降序，最近的在前）
+                          const sortedGroupKeys = Object.keys(groupedGoals).sort((a, b) => {
+                            const [yearA, quarterA] = a.split('-Q').map(Number);
+                            const [yearB, quarterB] = b.split('-Q').map(Number);
+                            if (yearA !== yearB) return yearB - yearA;
+                            return quarterB - quarterA;
+                          });
+
+                          return sortedGroupKeys.map((groupKey) => {
+                            const group = groupedGoals[groupKey];
+                            return (
+                              <SelectGroup key={groupKey}>
+                                <SelectLabel className="text-xs font-bold text-primary pl-2 pr-2 py-1.5">
+                                  {group.year}年 Q{group.quarter}
+                                </SelectLabel>
+                                {group.goals.map((goal) => (
+                                  <SelectItem
+                                    key={goal.id}
+                                    value={goal.id}
+                                    className="rounded-lg dark:hover:bg-gray-700 dark:text-gray-100"
+                                  >
+                                    <span className="font-extrabold">{goal.title}</span>
+                                  </SelectItem>
+                                ))}
+                              </SelectGroup>
+                            );
+                          });
+                        })()}
                       </SelectContent>
                     </Select>
                     {selectedQuarterlyGoal && selectedQuarterlyGoal !== "none" && (

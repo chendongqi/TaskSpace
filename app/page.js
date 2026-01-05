@@ -26,6 +26,7 @@ export default function Home() {
   const [darkMode, setDarkMode] = useState(false);
   const [theme, setTheme] = useState("default");
   const [dailyTasks, setDailyTasks] = useState({});
+  const [backlogTasks, setBacklogTasks] = useState([]); // 全局 Backlog 任务
   const [customTags, setCustomTags] = useState([]);
   const [habits, setHabits] = useState([]);
   const [yearlyGoals, setYearlyGoals] = useState([]);
@@ -114,6 +115,31 @@ export default function Home() {
         
         loadDataItem("customTags", setCustomTags);
         loadDataItem("habits", setHabits);
+        
+        loadDataItem("backlogTasks", setBacklogTasks, (savedBacklog) => {
+          // Convert date strings back to Date objects
+          return savedBacklog.map((task) => {
+            const processedSubtasks = (task.subtasks || []).map((subtask) => ({
+              ...subtask,
+              createdAt: new Date(subtask.createdAt || task.createdAt),
+              focusTime: subtask.focusTime || 0,
+              timeSpent: subtask.timeSpent || 0,
+              completed: !!subtask.completed,
+              parentTaskId: task.id,
+              subtasks: [],
+            }));
+            
+            return {
+              ...task,
+              createdAt: new Date(task.createdAt),
+              focusTime: task.focusTime || 0,
+              timeSpent: task.timeSpent || 0,
+              completed: !!task.completed,
+              subtasks: processedSubtasks,
+              subtasksExpanded: task.subtasksExpanded || false,
+            };
+          });
+        });
         
         loadDataItem("yearlyGoals", setYearlyGoals, (savedGoals) => {
           // Convert date strings back to Date objects
@@ -308,6 +334,12 @@ export default function Home() {
       dataStorage.setLocalData("customTags", customTags);
     }
   }, [customTags, isDataLoaded]);
+
+  useEffect(() => {
+    if (isDataLoaded) {
+      dataStorage.setLocalData("backlogTasks", backlogTasks);
+    }
+  }, [backlogTasks, isDataLoaded]);
 
   useEffect(() => {
     if (isDataLoaded) {
@@ -1188,6 +1220,83 @@ export default function Home() {
     setDailyTasks({ ...dailyTasks, [dateString]: [...currentTasks, newTask] });
   };
 
+  // Backlog 任务管理函数
+  const addBacklogTask = (title, tagId, priority, weeklyGoalId) => {
+    const newTask = {
+      id: Date.now().toString(),
+      title,
+      completed: false,
+      timeSpent: 0,
+      focusTime: 0,
+      createdAt: new Date(),
+      tag: tagId,
+      priority: priority || undefined,
+      weeklyGoalId: weeklyGoalId || undefined,
+      subtasks: [],
+      subtasksExpanded: false,
+    };
+    setBacklogTasks([...backlogTasks, newTask]);
+  };
+
+  const deleteBacklogTask = (taskId) => {
+    setBacklogTasks(backlogTasks.filter((task) => task.id !== taskId));
+  };
+
+  const updateBacklogTask = (taskId, updates) => {
+    setBacklogTasks(
+      backlogTasks.map((task) => (task.id === taskId ? { ...task, ...updates } : task))
+    );
+  };
+
+  const toggleBacklogTask = (taskId) => {
+    setBacklogTasks(
+      backlogTasks.map((task) =>
+        task.id === taskId ? { ...task, completed: !task.completed } : task
+      )
+    );
+  };
+
+  // 将 Backlog 任务移动到某一天
+  const moveBacklogTaskToDay = (taskId, targetDate) => {
+    const task = backlogTasks.find((t) => t.id === taskId);
+    if (!task) return;
+
+    const dateString = getDateString(targetDate);
+    const currentTasks = dailyTasks[dateString] || [];
+    
+    // 添加到目标日期
+    const movedTask = {
+      ...task,
+      createdAt: targetDate,
+    };
+    setDailyTasks({ ...dailyTasks, [dateString]: [...currentTasks, movedTask] });
+    
+    // 从 backlog 中删除
+    setBacklogTasks(backlogTasks.filter((t) => t.id !== taskId));
+  };
+
+  // 将某一天的任务移动到 Backlog
+  const moveDayTaskToBacklog = (taskId) => {
+    const task = findTaskById(taskId);
+    if (!task || task.isHabit) return; // 习惯任务不能移到 backlog
+
+    const dateString = getDateString(selectedDate);
+    const currentTasks = dailyTasks[dateString] || [];
+    
+    // 添加到 backlog
+    const movedTask = {
+      ...task,
+      createdAt: new Date(),
+    };
+    setBacklogTasks([...backlogTasks, movedTask]);
+    
+    // 从当天删除
+    setDailyTasks({
+      ...dailyTasks,
+      [dateString]: currentTasks.filter((t) => t.id !== taskId),
+    });
+  };
+
   const addSubtask = (parentTaskId, title, tagId) => {
     const dateString = getDateString(selectedDate);
     const currentTasks = getCurrentDayTasks();
@@ -1827,6 +1936,21 @@ export default function Home() {
                       onTaskClick={handleTaskClick}
                       onAddSubtask={handleAddSubtask}
                       weeklyGoals={weeklyGoals}
+                      noPaddingBottom={true}
+                    />
+                    
+                    {/* Backlog Section */}
+                    <TaskList
+                      tasks={backlogTasks}
+                      customTags={customTags}
+                      onToggleTask={toggleBacklogTask}
+                      onDeleteTask={deleteBacklogTask}
+                      onTaskClick={handleTaskClick}
+                      onAddSubtask={handleAddSubtask}
+                      weeklyGoals={weeklyGoals}
+                      isBacklog={true}
+                      title="BACKLOG"
+                      noPaddingTop={true}
                     />
                   </div>
                 </div>
@@ -1895,16 +2019,19 @@ export default function Home() {
                   setShowTaskOptions(false);
                   setSelectedTask(null);
                 }}
-                onUpdateTask={updateTask}
-                onDeleteTask={deleteTask}
+                onUpdateTask={selectedTask && backlogTasks.find(t => t.id === selectedTask.id) ? updateBacklogTask : updateTask}
+                onDeleteTask={selectedTask && backlogTasks.find(t => t.id === selectedTask.id) ? deleteBacklogTask : deleteTask}
                 onAddCustomTag={addCustomTag}
-                onToggleTask={toggleTask}
+                onToggleTask={selectedTask && backlogTasks.find(t => t.id === selectedTask.id) ? toggleBacklogTask : toggleTask}
                 selectedDate={selectedDate}
                 onTransferTask={transferTaskToCurrentDay}
                 currentActualDate={new Date()}
                 onAddSubtask={handleAddSubtask}
                 allTasks={allTasks}
                 weeklyGoals={weeklyGoals}
+                onMoveToBacklog={moveDayTaskToBacklog}
+                onMoveToDay={moveBacklogTaskToDay}
+                isBacklogTask={selectedTask && !!backlogTasks.find(t => t.id === selectedTask.id)}
               />
             )}
 

@@ -23,6 +23,10 @@ export function TaskList({
   onTaskClick,
   onAddSubtask,
   weeklyGoals = [], // 新增：周目标数组
+  isBacklog = false, // 是否是 Backlog 区域
+  title = null, // 自定义标题
+  noPaddingTop = false, // 是否移除顶部 padding
+  noPaddingBottom = false, // 是否移除底部 padding
 }) {
   // Use simple object instead of Set for better state management
   const [expandedTasks, setExpandedTasks] = useState({});
@@ -158,6 +162,9 @@ export function TaskList({
 
   const sortedRegularTasks = sortTasksByCompletion(regularTasks);
   const sortedHabitTasks = sortTasksByCompletion(habitTasks);
+  
+  // For Backlog mode, sort all tasks
+  const sortedTasks = isBacklog ? sortTasksByCompletion(tasks) : [];
 
   // Animation variants
   const containerVariants = {
@@ -225,11 +232,113 @@ export function TaskList({
     },
   };
 
+  // 动态构建 className
+  let rootClassName = "h-full overflow-y-auto hide-scroll overflow-x-hidden";
+  
+  if (!noPaddingTop && !noPaddingBottom) {
+    // 默认：所有 padding
+    rootClassName += " p-4 px-0 pb-[3.54rem]";
+  } else if (noPaddingTop && !noPaddingBottom) {
+    // 移除顶部 padding，保留底部
+    rootClassName += " px-0 pb-[3.54rem]";
+  } else if (!noPaddingTop && noPaddingBottom) {
+    // 移除底部 padding，保留顶部
+    rootClassName += " p-4 px-0";
+  } else {
+    // 移除所有 padding
+    rootClassName += " px-0";
+  }
+
   return (
-    <div className="h-full overflow-y-auto hide-scroll overflow-x-hidden p-4 px-0 pb-[3.54rem]">
+    <div className={rootClassName}>
       <AnimatePresence>
-        {/* Habits Section */}
-        {sortedHabitTasks.length > 0 && (
+        {/* Backlog Section */}
+        {isBacklog ? (
+          <motion.div
+            key="backlog-section"
+            className="mb-6"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <motion.button
+              onClick={() => toggleSection("tasks")}
+              className="w-full text-left text-sm text-primary font-extrabold uppercase tracking-wide mb-3 flex items-center gap-2 hover:text-primary/80 transition-colors"
+              variants={headerVariants}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+            >
+              <motion.div
+                animate={{ rotate: collapsedSections.tasks ? -90 : 0 }}
+                transition={{ duration: 0.2 }}
+              >
+                <ChevronDown className="h-4 w-4" />
+              </motion.div>
+              <Calendar className="h-4 w-4" />
+              {title || "BACKLOG"} ({sortedTasks.filter((t) => t.completed).length}/
+              {sortedTasks.length})
+            </motion.button>
+
+            <AnimatePresence>
+              {!collapsedSections.tasks && (
+                <motion.div
+                  variants={sectionVariants}
+                  initial="hidden"
+                  animate="visible"
+                  exit="exit"
+                  className="overflow-hidden"
+                >
+                  <motion.div
+                    className=""
+                    variants={containerVariants}
+                    initial="hidden"
+                    animate="visible"
+                    exit="exit"
+                  >
+                    {sortedTasks.map((task, index) => (
+                      <TaskItem
+                        key={task.id}
+                        task={task}
+                        onTaskClick={handleTaskClick}
+                        onToggleTask={handleToggleTask}
+                        onToggleExpanded={toggleExpanded}
+                        onAddSubtask={handleAddSubtask}
+                        formatTime={formatTime}
+                        getTagInfo={getTagInfo}
+                        getTotalTime={getTotalTime}
+                        getTotalFocusTime={getTotalFocusTime}
+                        isHabit={false}
+                        variants={taskVariants}
+                        isLastTask={index === sortedTasks.length - 1}
+                        isExpanded={expandedTasks[task.id] || false}
+                        expandedTasks={expandedTasks}
+                        level={0}
+                        weeklyGoals={weeklyGoals}
+                      />
+                    ))}
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+            
+            {sortedTasks.length === 0 && (
+              <motion.div
+                key="no-backlog-message"
+                className="text-center py-8 text-muted-foreground"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+              >
+                <p className="text-sm">No backlog tasks yet</p>
+              </motion.div>
+            )}
+          </motion.div>
+        ) : (
+          <>
+            {/* Habits Section */}
+            {sortedHabitTasks.length > 0 && (
           <motion.div
             key="habits-section"
             className="mb-6 mt-3"
@@ -377,7 +486,7 @@ export function TaskList({
           </motion.div>
         )}
 
-        {tasks.length === 0 && (
+        {!isBacklog && tasks.length === 0 && (
           <motion.div
             key="no-tasks-message"
             initial={{ opacity: 0, y: 15 }}
@@ -388,6 +497,8 @@ export function TaskList({
           >
             <p>No tasks yet. Add one to get started!</p>
           </motion.div>
+        )}
+          </>
         )}
       </AnimatePresence>
     </div>

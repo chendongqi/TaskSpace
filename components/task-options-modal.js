@@ -15,6 +15,7 @@ import {
   List,
   ChevronRight,
   Target,
+  Calendar,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,6 +25,8 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  SelectGroup,
+  SelectLabel,
 } from "@/components/ui/select";
 import { PrioritySelector } from "@/components/priority-badge";
 
@@ -40,6 +43,15 @@ const PRESET_COLORS = [
   "#6366f1", // indigo
 ];
 
+// Helper function to get week number
+function getWeekNumber(date) {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+}
+
 export function TaskOptionsModal({
   task,
   customTags,
@@ -54,6 +66,9 @@ export function TaskOptionsModal({
   onAddSubtask,
   allTasks,
   weeklyGoals = [], // 新增：周目标列表
+  onMoveToBacklog = null, // 移动到 Backlog
+  onMoveToDay = null, // 从 Backlog 移动到某一天
+  isBacklogTask = false, // 是否是 Backlog 任务
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(task.title);
@@ -64,6 +79,12 @@ export function TaskOptionsModal({
   const [newTagName, setNewTagName] = useState("");
   const [selectedColor, setSelectedColor] = useState(PRESET_COLORS[0]);
   const [showSubtasks, setShowSubtasks] = useState(false);
+  
+  // 周目标筛选状态
+  const currentDate = new Date();
+  const [filterYear, setFilterYear] = useState(currentDate.getFullYear());
+  const [filterWeek, setFilterWeek] = useState(getWeekNumber(currentDate));
+  const [enableFilter, setEnableFilter] = useState(false);
 
   // Get subtasks for this task
   const subtasks = task.subtasks || [];
@@ -597,10 +618,71 @@ export function TaskOptionsModal({
             {/* Weekly Goal Selection */}
             {weeklyGoals && weeklyGoals.length > 0 && (
               <motion.div variants={itemVariants} className="space-y-3">
-                <label className="text-sm font-extrabold text-gray-700 dark:text-gray-200 uppercase tracking-wider flex items-center gap-2">
-                  <Target className="h-4 w-4" />
-                  Weekly Goal
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-extrabold text-gray-700 dark:text-gray-200 uppercase tracking-wider flex items-center gap-2">
+                    <Target className="h-4 w-4" />
+                    Weekly Goal
+                  </label>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setEnableFilter(!enableFilter)}
+                    className="text-xs h-7 px-2 rounded-lg"
+                  >
+                    {enableFilter ? "显示全部" : "筛选"}
+                  </Button>
+                </div>
+                
+                {/* 筛选器 */}
+                <AnimatePresence>
+                  {enableFilter && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="flex gap-2 overflow-hidden"
+                    >
+                      <div className="flex-1">
+                        <Select value={filterYear.toString()} onValueChange={(val) => setFilterYear(Number(val))}>
+                          <SelectTrigger className="h-9 text-xs border-gray-300 dark:border-gray-600 rounded-lg">
+                            <SelectValue placeholder="年度" />
+                          </SelectTrigger>
+                          <SelectContent className="rounded-lg">
+                            {Array.from(new Set(weeklyGoals.filter(g => g && g.year).map(g => g.year)))
+                              .sort((a, b) => b - a)
+                              .map(year => (
+                                <SelectItem key={year} value={year.toString()} className="text-xs">
+                                  {year}年
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="flex-1">
+                        <Select value={filterWeek.toString()} onValueChange={(val) => setFilterWeek(Number(val))}>
+                          <SelectTrigger className="h-9 text-xs border-gray-300 dark:border-gray-600 rounded-lg">
+                            <SelectValue placeholder="周数" />
+                          </SelectTrigger>
+                          <SelectContent className="rounded-lg max-h-60">
+                            {Array.from(new Set(
+                              weeklyGoals
+                                .filter(g => g && g.year === filterYear && g.week)
+                                .map(g => g.week)
+                            ))
+                              .sort((a, b) => b - a)
+                              .map(week => (
+                                <SelectItem key={week} value={week.toString()} className="text-xs">
+                                  第{week}周
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+                
                 <Select value={selectedWeeklyGoal} onValueChange={handleWeeklyGoalChange}>
                   <SelectTrigger className="border-2 border-gray-300 focus:border-primary/70 font-extrabold dark:border-gray-600 dark:focus:border-primary/80 dark:bg-gray-800 dark:text-gray-100 rounded-xl py-3">
                     <SelectValue placeholder="Select weekly goal (optional)" />
@@ -612,22 +694,60 @@ export function TaskOptionsModal({
                     >
                       <span className="font-extrabold">No weekly goal</span>
                     </SelectItem>
-                    {weeklyGoals
-                      .filter((goal) => goal && goal.id && goal.id !== "") // 过滤掉无效的目标
-                      .map((goal) => (
-                        <SelectItem
-                          key={goal.id}
-                          value={goal.id}
-                          className="rounded-lg dark:hover:bg-gray-700 dark:text-gray-100"
-                        >
-                          <div className="flex flex-col">
-                            <span className="font-extrabold">{goal.title}</span>
-                            <span className="text-xs text-gray-500 dark:text-gray-400">
-                              Week {goal.week}, Q{goal.quarter} {goal.year}
-                            </span>
-                          </div>
-                        </SelectItem>
-                      ))}
+                    {(() => {
+                      // 按年度-周分组，并根据筛选条件过滤
+                      const filteredGoals = weeklyGoals.filter((goal) => {
+                        // 必须有有效的 id, year, 和 week
+                        if (!goal || !goal.id || goal.id === "" || !goal.year || !goal.week) return false;
+                        if (enableFilter) {
+                          return goal.year === filterYear && goal.week === filterWeek;
+                        }
+                        return true;
+                      });
+                      
+                      const groupedGoals = filteredGoals
+                        .reduce((groups, goal) => {
+                          const key = `${goal.year}-W${goal.week}`;
+                          if (!groups[key]) {
+                            groups[key] = {
+                              year: goal.year,
+                              week: goal.week,
+                              quarter: goal.quarter,
+                              goals: []
+                            };
+                          }
+                          groups[key].goals.push(goal);
+                          return groups;
+                        }, {});
+
+                      // 按年度-周排序（降序，最近的在前）
+                      const sortedGroupKeys = Object.keys(groupedGoals).sort((a, b) => {
+                        const [yearA, weekA] = a.split('-W').map(Number);
+                        const [yearB, weekB] = b.split('-W').map(Number);
+                        if (yearA !== yearB) return yearB - yearA;
+                        return weekB - weekA;
+                      });
+
+                      return sortedGroupKeys.map((groupKey) => {
+                        const group = groupedGoals[groupKey];
+                        return (
+                          <SelectGroup key={groupKey}>
+                            <SelectLabel className="text-xs font-bold text-primary pl-2 pr-2 py-1.5">
+                              {group.year}年 第{group.week}周 (Q{group.quarter})
+                            </SelectLabel>
+                            {group.goals.map((goal) => (
+                              <SelectItem
+                                key={goal.id}
+                                value={goal.id}
+                                className="rounded-lg dark:hover:bg-gray-700 dark:text-gray-100"
+                              >
+                                <span className="font-extrabold">{goal.title}</span>
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
+                        );
+                      });
+                    })()}
                   </SelectContent>
                 </Select>
               </motion.div>
@@ -745,6 +865,37 @@ export function TaskOptionsModal({
                   <ArrowRight className="h-4 w-4 mr-2" />
                   Transfer to Today
                 </Button>
+              )}
+
+              {/* Move to Backlog / Move to Day */}
+              {!task.isHabit && !isSubtask && (
+                <>
+                  {isBacklogTask && onMoveToDay ? (
+                    <Button
+                      onClick={() => {
+                        onMoveToDay(task.id, selectedDate);
+                        onClose();
+                      }}
+                      className="w-full bg-transparent rounded-xl font-extrabold text-lg"
+                      variant="outline"
+                    >
+                      <Calendar className="h-4 w-4 mr-2" />
+                      Move to {selectedDate.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })}
+                    </Button>
+                  ) : onMoveToBacklog ? (
+                    <Button
+                      onClick={() => {
+                        onMoveToBacklog(task.id);
+                        onClose();
+                      }}
+                      className="w-full bg-transparent rounded-xl font-extrabold text-lg"
+                      variant="outline"
+                    >
+                      <ArrowRight className="h-4 w-4 mr-2" />
+                      Move to Backlog
+                    </Button>
+                  ) : null}
+                </>
               )}
 
               {/* Only show delete button for regular tasks, not habits */}
