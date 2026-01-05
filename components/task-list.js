@@ -22,7 +22,8 @@ export function TaskList({
   onDeleteTask,
   onTaskClick,
   onAddSubtask,
-  weeklyGoals = [], // 新增：周目标数组
+  weeklyGoals = [], // 周目标数组（用于任务）
+  yearlyGoals = [], // 年度目标数组（用于习惯）
   isBacklog = false, // 是否是 Backlog 区域
   title = null, // 自定义标题
   noPaddingTop = false, // 是否移除顶部 padding
@@ -316,6 +317,7 @@ export function TaskList({
                         expandedTasks={expandedTasks}
                         level={0}
                         weeklyGoals={weeklyGoals}
+                        yearlyGoals={yearlyGoals}
                       />
                     ))}
                   </motion.div>
@@ -404,6 +406,7 @@ export function TaskList({
                         expandedTasks={expandedTasks}
                         level={0}
                         weeklyGoals={weeklyGoals}
+                        yearlyGoals={yearlyGoals}
                       />
                     ))}
                   </motion.div>
@@ -477,6 +480,7 @@ export function TaskList({
                         expandedTasks={expandedTasks}
                         level={0}
                         weeklyGoals={weeklyGoals}
+                        yearlyGoals={yearlyGoals}
                       />
                     ))}
                   </motion.div>
@@ -522,7 +526,8 @@ function TaskItem({
   expandedTasks,
   level = 0,
   isSubtask = false,
-  weeklyGoals = [], // 新增：周目标数组
+  weeklyGoals = [], // 周目标数组（用于任务）
+  yearlyGoals = [], // 年度目标数组（用于习惯）
 }) {
   const tagInfo = getTagInfo(task.tag);
   const subtasks = task.subtasks || [];
@@ -537,10 +542,11 @@ function TaskItem({
     ? task.focusTime || 0
     : getTotalFocusTime(task);
   
-  // 查找关联的周目标
-  const linkedWeeklyGoal = task.weeklyGoalId 
-    ? weeklyGoals.find(g => g.id === task.weeklyGoalId)
-    : null;
+  // 根据任务类型查找关联的目标
+  // 习惯关联年度目标，任务关联周目标
+  const linkedGoal = task.isHabit 
+    ? (task.yearlyGoalId ? yearlyGoals.find(g => g.id === task.yearlyGoalId) : null)
+    : (task.weeklyGoalId ? weeklyGoals.find(g => g.id === task.weeklyGoalId) : null);
 
   // Sort subtasks: incomplete first, then completed
   const sortedSubtasks = [...subtasks].sort((a, b) => {
@@ -588,8 +594,8 @@ function TaskItem({
             )}
 
             <div className="flex-1">
-              {/* 第一行：TAG + 周目标关联 + 子任务进度（横向排列）*/}
-              {(tagInfo || linkedWeeklyGoal || hasSubtasks) && (
+              {/* 第一行：TAG + 目标关联 + 子任务进度（横向排列）*/}
+              {(tagInfo || linkedGoal || hasSubtasks) && (
                 <div className="flex items-center gap-2 mb-1 flex-wrap">
                   {/* TAG */}
                   {tagInfo && (
@@ -604,17 +610,21 @@ function TaskItem({
                     </div>
                   )}
 
-                  {/* 周目标关联指示器 */}
-                  {linkedWeeklyGoal && (
+                  {/* 目标关联指示器 */}
+                  {linkedGoal && (
                     <motion.div 
                       initial={{ scale: 0.9, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
                       transition={{ duration: 0.15 }}
                       className="flex items-center gap-1 text-primary font-semibold"
-                      title={`关联到周目标: ${linkedWeeklyGoal.title}`}
+                      title={`关联到${task.isHabit ? '年度' : '周'}目标: ${linkedGoal.title}`}
                     >
-                      <Calendar className="h-3 w-3 flex-shrink-0" />
-                      <span className="text-xs leading-none">{linkedWeeklyGoal.title}</span>
+                      {task.isHabit ? (
+                        <Target className="h-3 w-3 flex-shrink-0" />
+                      ) : (
+                        <Calendar className="h-3 w-3 flex-shrink-0" />
+                      )}
+                      <span className="text-xs leading-none">{linkedGoal.title}</span>
                     </motion.div>
                   )}
 
@@ -740,6 +750,8 @@ function TaskItem({
               expandedTasks={expandedTasks}
               level={level + 1}
               isSubtask={true}
+              weeklyGoals={weeklyGoals}
+              yearlyGoals={yearlyGoals}
             />
           ))}
         </div>

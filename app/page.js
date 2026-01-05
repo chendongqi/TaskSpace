@@ -821,6 +821,7 @@ export default function Home() {
       habitId: habit.id,
       tag: habit.tag,
       priority: habit.priority, // 添加优先级字段
+      yearlyGoalId: habit.yearlyGoalId, // 添加年度目标关联字段
       subtasks: [], // Habits don't have subtasks
     }));
   };
@@ -1407,6 +1408,13 @@ export default function Home() {
         );
         setHabits(updatedHabits);
       }
+      if (habit && updates.yearlyGoalId !== undefined) {
+        // Update habit yearly goal
+        const updatedHabits = habits.map((h) =>
+          h.id === habitId ? { ...h, yearlyGoalId: updates.yearlyGoalId } : h
+        );
+        setHabits(updatedHabits);
+      }
     } else {
       // Regular task/subtask update
       const updatedTasks = updateTaskInList(taskId, updates, currentTasks);
@@ -1739,6 +1747,7 @@ export default function Home() {
                   onTaskClick={handleTaskClick}
                   onAddSubtask={handleAddSubtask}
                   weeklyGoals={weeklyGoals}
+                  yearlyGoals={yearlyGoals}
                 />
               </div>
 
@@ -1963,6 +1972,7 @@ export default function Home() {
                       onTaskClick={handleTaskClick}
                       onAddSubtask={handleAddSubtask}
                       weeklyGoals={weeklyGoals}
+                      yearlyGoals={yearlyGoals}
                       noPaddingBottom={true}
                     />
                     
@@ -1975,6 +1985,7 @@ export default function Home() {
                       onTaskClick={handleTaskClick}
                       onAddSubtask={handleAddSubtask}
                       weeklyGoals={weeklyGoals}
+                      yearlyGoals={yearlyGoals}
                       isBacklog={true}
                       title="BACKLOG"
                       noPaddingTop={true}
@@ -2056,6 +2067,7 @@ export default function Home() {
                 onAddSubtask={handleAddSubtask}
                 allTasks={allTasks}
                 weeklyGoals={weeklyGoals}
+                yearlyGoals={yearlyGoals}
                 onMoveToBacklog={moveDayTaskToBacklog}
                 onMoveToDay={moveBacklogTaskToDay}
                 isBacklogTask={selectedTask && !!backlogTasks.find(t => t.id === selectedTask.id)}
@@ -2066,6 +2078,7 @@ export default function Home() {
               <HabitTracker
                 habits={habits}
                 customTags={customTags}
+                yearlyGoals={yearlyGoals}
                 onClose={() => setShowHabits(false)}
                 onUpdateHabits={setHabits}
                 onAddCustomTag={addCustomTag}

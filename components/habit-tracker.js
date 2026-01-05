@@ -11,6 +11,7 @@ import {
   RotateCcw,
   Check,
   Trash2,
+  Target,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,6 +40,7 @@ const PRESET_COLORS = [
 export function HabitTracker({
   habits,
   customTags,
+  yearlyGoals = [], // 新增：年度目标数组
   onClose,
   onUpdateHabits,
   onAddCustomTag,
@@ -46,6 +48,7 @@ export function HabitTracker({
   const [newHabitName, setNewHabitName] = useState("");
   const [selectedTag, setSelectedTag] = useState("");
   const [selectedPriority, setSelectedPriority] = useState(undefined);
+  const [selectedYearlyGoal, setSelectedYearlyGoal] = useState("none"); // 新增：选中的年度目标
   const [showAddForm, setShowAddForm] = useState(false);
   const [showAddTag, setShowAddTag] = useState(false);
   const [newTagName, setNewTagName] = useState("");
@@ -91,11 +94,13 @@ export function HabitTracker({
         completedDates: [],
         tag: selectedTag || undefined,
         priority: selectedPriority || undefined,
+        yearlyGoalId: selectedYearlyGoal !== "none" ? selectedYearlyGoal : undefined, // 新增：年度目标关联
       };
       onUpdateHabits([...habits, newHabit]);
       setNewHabitName("");
       setSelectedTag("");
       setSelectedPriority(undefined);
+      setSelectedYearlyGoal("none"); // 重置年度目标选择
       setShowAddForm(false);
       setShowNavigation(true);
       setCurrentHabitIndex(habits.length); // Switch to the new habit
@@ -175,6 +180,9 @@ export function HabitTracker({
     currentHabitIndex >= 0 ? habits[currentHabitIndex] : null;
   const currentHabitTag = customTags.find(
     (tag) => tag.id === currentHabit?.tag
+  );
+  const currentHabitYearlyGoal = yearlyGoals.find(
+    (goal) => goal.id === currentHabit?.yearlyGoalId
   );
 
   // Calculate total habits completed in the past 30 days
@@ -439,6 +447,34 @@ export function HabitTracker({
                     />
                   </motion.div>
 
+                  {/* Yearly Goal Selection */}
+                  <motion.div variants={itemVariants} className="space-y-3">
+                    <label className="text-sm font-extrabold text-gray-700 dark:text-gray-200 uppercase tracking-wider">
+                      Yearly Goal (Optional)
+                    </label>
+                    <Select value={selectedYearlyGoal} onValueChange={setSelectedYearlyGoal}>
+                      <SelectTrigger className="border-2 border-gray-300 focus:border-primary/70 font-extrabold dark:border-gray-600 dark:focus:border-primary/80 dark:bg-gray-800 dark:text-gray-100 rounded-xl py-3">
+                        <SelectValue placeholder="Link to a yearly goal (optional)" />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-xl border-gray-200 dark:bg-gray-800 dark:border-gray-700">
+                        <SelectItem value="none" className="rounded-lg dark:hover:bg-gray-700 dark:text-gray-100">
+                          <span className="font-extrabold">No yearly goal</span>
+                        </SelectItem>
+                        {yearlyGoals
+                          .filter((goal) => goal && goal.id && goal.id !== "")
+                          .map((goal) => (
+                            <SelectItem
+                              key={goal.id}
+                              value={goal.id}
+                              className="rounded-lg dark:hover:bg-gray-700 dark:text-gray-100"
+                            >
+                              <span className="font-extrabold">{goal.title}</span>
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  </motion.div>
+
                   {/* Add New Tag Form */}
                   <AnimatePresence>
                     {showAddTag && (
@@ -544,6 +580,7 @@ export function HabitTracker({
                           setNewHabitName("");
                           setSelectedTag("");
                           setSelectedPriority(undefined);
+                          setSelectedYearlyGoal("none"); // 重置年度目标选择
                           setShowAddTag(false);
                           setNewTagName("");
                           setShowNavigation(true);
@@ -620,17 +657,27 @@ export function HabitTracker({
                             {currentHabit?.name}
                           </h3>
                         </div>
-                        {currentHabitTag && (
-                          <div className="flex items-center justify-center gap-1 mt-1">
-                            <div
-                              className="w-2 h-2 rounded-full"
-                              style={{ backgroundColor: currentHabitTag.color }}
-                            />
-                            <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">
-                              {currentHabitTag.name}
-                            </span>
-                          </div>
-                        )}
+                        <div className="flex items-center justify-center gap-2 mt-1 flex-wrap">
+                          {currentHabitTag && (
+                            <div className="flex items-center gap-1">
+                              <div
+                                className="w-2 h-2 rounded-full"
+                                style={{ backgroundColor: currentHabitTag.color }}
+                              />
+                              <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">
+                                {currentHabitTag.name}
+                              </span>
+                            </div>
+                          )}
+                          {currentHabitYearlyGoal && (
+                            <div className="flex items-center gap-1 text-primary font-semibold text-xs">
+                              <Target className="h-3 w-3 flex-shrink-0" />
+                              <span className="truncate max-w-[150px]" title={`关联到年度目标: ${currentHabitYearlyGoal.title}`}>
+                                {currentHabitYearlyGoal.title}
+                              </span>
+                            </div>
+                          )}
+                        </div>
                       </>
                     )}
                   </div>
