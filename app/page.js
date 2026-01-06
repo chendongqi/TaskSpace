@@ -796,6 +796,73 @@ export default function Home() {
     }
   }, [quarterlyGoals, isDataLoaded]);
 
+  /**
+   * 验证数据完整性并显示结果
+   */
+  const handleValidateData = () => {
+    const issues = validateDataIntegrity();
+    
+    if (issues.length === 0) {
+      toast.success('数据完整性检查通过', {
+        description: '未发现任何问题 ✓'
+      });
+    } else {
+      // 按严重程度分组
+      const errors = issues.filter(i => i.severity === 'error');
+      const warnings = issues.filter(i => i.severity === 'warning');
+      
+      let message = '';
+      if (errors.length > 0) {
+        message += `发现 ${errors.length} 个严重问题\n`;
+        errors.forEach(err => {
+          message += `• ${err.message}\n`;
+        });
+      }
+      if (warnings.length > 0) {
+        message += `发现 ${warnings.length} 个警告\n`;
+        warnings.forEach(warn => {
+          message += `• ${warn.message}\n`;
+        });
+      }
+      
+      // 如果有可修复的问题，提供修复选项
+      const fixableIssues = issues.filter(i => i.fix);
+      if (fixableIssues.length > 0) {
+        showConfirm(
+          '发现数据问题',
+          message + '\n是否立即修复？',
+          () => {
+            fixableIssues.forEach(issue => issue.fix());
+          }
+        );
+      } else {
+        toast.warning('发现数据问题', {
+          description: message
+        });
+      }
+    }
+  };
+
+  /**
+   * 处理数据去重（带确认）
+   */
+  const handleDeduplicateTasks = () => {
+    const duplicates = findDuplicateTasks();
+    
+    if (duplicates.length === 0) {
+      toast.info('数据清理', {
+        description: '没有发现重复任务'
+      });
+      return;
+    }
+    
+    showConfirm(
+      '清理重复任务',
+      `发现 ${duplicates.length} 个任务有重复副本。将保留最新的副本，删除旧的。是否继续？`,
+      deduplicateTasks
+    );
+  };
+
   const getDateString = (date) => {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -1073,6 +1140,73 @@ export default function Home() {
         });
       }
 
+      // 3.5. Merge Backlog Tasks (similar to daily tasks but simpler)
+      if (data.backlogTasks) {
+        setBacklogTasks((prevBacklogTasks) => {
+          const taskMap = new Map();
+          
+          // 先添加现有任务
+          prevBacklogTasks.forEach(task => {
+            taskMap.set(task.id, task);
+          });
+
+          // 处理导入的 Backlog 任务
+          data.backlogTasks.forEach((incomingTask) => {
+            // Map the tag ID if it exists in our mapping
+            const mappedTagId =
+              incomingTask.tag && tagMapping.has(incomingTask.tag)
+                ? tagMapping.get(incomingTask.tag)
+                : incomingTask.tag;
+
+            const processedTask = {
+              ...incomingTask,
+              createdAt: new Date(incomingTask.createdAt),
+              focusTime: incomingTask.focusTime || 0,
+              timeSpent: incomingTask.timeSpent || 0,
+              completed: !!incomingTask.completed,
+              tag: mappedTagId,
+              subtasks: (incomingTask.subtasks || []).map((subtask) => {
+                const mappedSubtaskTagId =
+                  subtask.tag && tagMapping.has(subtask.tag)
+                    ? tagMapping.get(subtask.tag)
+                    : subtask.tag;
+
+                return {
+                  ...subtask,
+                  createdAt: new Date(subtask.createdAt || incomingTask.createdAt),
+                  focusTime: subtask.focusTime || 0,
+                  timeSpent: subtask.timeSpent || 0,
+                  completed: !!subtask.completed,
+                  parentTaskId: incomingTask.id,
+                  tag: mappedSubtaskTagId,
+                  subtasks: [],
+                };
+              }),
+              subtasksExpanded: incomingTask.subtasksExpanded || false,
+              isBacklog: true,
+            };
+
+            if (taskMap.has(incomingTask.id)) {
+              // 任务已存在，合并（以最新的为准）
+              const existingTask = taskMap.get(incomingTask.id);
+              const existingTime = new Date(existingTask.createdAt).getTime();
+              const incomingTime = new Date(processedTask.createdAt).getTime();
+              
+              if (incomingTime > existingTime) {
+                taskMap.set(incomingTask.id, processedTask);
+                importStats.updatedTasks++;
+              }
+            } else {
+              // 新任务
+              taskMap.set(incomingTask.id, processedTask);
+              importStats.newTasks++;
+            }
+          });
+
+          return Array.from(taskMap.values());
+        });
+      }
+
       // 4. Optionally update settings (ask user first)
       const settingsToUpdate = [];
       if (typeof data.darkMode === "boolean" && data.darkMode !== darkMode) {
@@ -1144,7 +1278,340 @@ export default function Home() {
     }
   };
 
-  // Helper function to find a task by ID (including subtasks)
+  // ====== 🎯 全局任务查找和管理系统 ======
+  
+  /**
+   * 在所有位置全局查找任务（包括所有日期和 Backlog）
+   * @param {string} taskId - 任务ID
+   * @returns {{ task: Object, location: { type: 'daily'|'backlog', dateString?: string, parentTaskId?: string } } | null}
+   */
+  const findTaskGlobally = (taskId) => {
+    // 1. 在 Backlog 中查找
+    const backlogTask = backlogTasks.find(t => t.id === taskId);
+    if (backlogTask) {
+      return {
+        task: backlogTask,
+        location: { type: 'backlog' }
+      };
+    }
+    
+    // 在 Backlog 的子任务中查找
+    for (const task of backlogTasks) {
+      if (task.subtasks && task.subtasks.length > 0) {
+        const subtask = task.subtasks.find(st => st.id === taskId);
+        if (subtask) {
+          return {
+            task: subtask,
+            location: { type: 'backlog', parentTaskId: task.id }
+          };
+        }
+      }
+    }
+    
+    // 2. 在所有日期的任务中查找
+    for (const dateString in dailyTasks) {
+      const dayTasks = dailyTasks[dateString] || [];
+      
+      // 检查主任务
+      for (const task of dayTasks) {
+        if (task.id === taskId && !task.isHabit) {
+          return {
+            task,
+            location: { type: 'daily', dateString }
+          };
+        }
+        
+        // 检查子任务
+        if (task.subtasks && task.subtasks.length > 0) {
+          const subtask = task.subtasks.find(st => st.id === taskId);
+          if (subtask) {
+            return {
+              task: subtask,
+              location: { type: 'daily', dateString, parentTaskId: task.id }
+            };
+          }
+        }
+      }
+    }
+    
+    return null;
+  };
+
+  /**
+   * 检测重复任务
+   * @returns {Array<{ taskId: string, locations: Array<Object> }>}
+   */
+  const findDuplicateTasks = () => {
+    const taskMap = new Map(); // taskId -> [locations]
+    
+    // 检查 Backlog
+    backlogTasks.forEach(task => {
+      if (!task.isHabit) {
+        if (!taskMap.has(task.id)) {
+          taskMap.set(task.id, []);
+        }
+        taskMap.get(task.id).push({ type: 'backlog', title: task.title });
+      }
+    });
+    
+    // 检查所有日期
+    Object.keys(dailyTasks).forEach(dateString => {
+      const dayTasks = dailyTasks[dateString] || [];
+      dayTasks.forEach(task => {
+        if (!task.isHabit) {
+          if (!taskMap.has(task.id)) {
+            taskMap.set(task.id, []);
+          }
+          taskMap.get(task.id).push({ type: 'daily', dateString, title: task.title });
+        }
+      });
+    });
+    
+    // 找出重复的
+    const duplicates = [];
+    taskMap.forEach((locations, taskId) => {
+      if (locations.length > 1) {
+        duplicates.push({ taskId, locations });
+      }
+    });
+    
+    return duplicates;
+  };
+
+  /**
+   * 通用任务移动函数 - 所有任务移动操作的统一入口
+   * @param {string} taskId - 任务ID
+   * @param {{ type: 'daily', date: Date } | { type: 'backlog' }} destination - 目标位置
+   * @param {{ resetProgress: boolean }} options - 选项
+   * @returns {boolean} 是否成功
+   */
+  const moveTask = (taskId, destination, options = { resetProgress: true }) => {
+    // 1. 全局查找任务
+    const found = findTaskGlobally(taskId);
+    
+    if (!found) {
+      console.error('❌ Task not found globally:', taskId);
+      toast.error('任务未找到', {
+        description: '可能已被删除或数据不一致'
+      });
+      return false;
+    }
+    
+    const { task, location } = found;
+    
+    // 2. 检查是否是子任务（子任务不能独立移动）
+    if (location.parentTaskId) {
+      toast.error('无法移动子任务', {
+        description: '子任务必须跟随父任务'
+      });
+      return false;
+    }
+    
+    // 3. 检查是否是习惯任务
+    if (task.isHabit) {
+      toast.error('无法移动习惯任务', {
+        description: '习惯任务由习惯追踪器管理'
+      });
+      return false;
+    }
+    
+    // 4. 准备移动后的任务数据
+    const movedTask = {
+      ...task,
+      ...(destination.type === 'daily' && options.resetProgress ? {
+        createdAt: destination.date,
+        completed: false,
+        timeSpent: 0,
+        focusTime: 0,
+        subtasks: (task.subtasks || []).map(st => ({
+          ...st,
+          completed: false,
+          timeSpent: 0,
+          focusTime: 0,
+          createdAt: destination.date,
+        })),
+      } : {}),
+      ...(destination.type === 'backlog' ? {
+        createdAt: new Date(),
+        isBacklog: true,
+      } : {
+        ...(destination.type === 'daily' && !options.resetProgress ? {
+          createdAt: destination.date,
+        } : {}),
+        isBacklog: false,
+      }),
+    };
+    
+    console.log('🔄 Moving task:', {
+      taskId,
+      title: task.title,
+      from: location,
+      to: destination,
+      resetProgress: options.resetProgress
+    });
+    
+    // 5. 从原位置删除
+    if (location.type === 'backlog') {
+      setBacklogTasks(prev => prev.filter(t => t.id !== taskId));
+    } else {
+      setDailyTasks(prev => {
+        const updated = { ...prev };
+        if (updated[location.dateString]) {
+          updated[location.dateString] = updated[location.dateString].filter(
+            t => t.id !== taskId
+          );
+          // 清理空日期条目
+          if (updated[location.dateString].length === 0) {
+            delete updated[location.dateString];
+          }
+        }
+        return updated;
+      });
+    }
+    
+    // 6. 添加到新位置
+    if (destination.type === 'backlog') {
+      setBacklogTasks(prev => [...prev, movedTask]);
+      toast.success('已移动到 Backlog');
+    } else {
+      const targetDateString = getDateString(destination.date);
+      setDailyTasks(prev => ({
+        ...prev,
+        [targetDateString]: [...(prev[targetDateString] || []), movedTask],
+      }));
+      toast.success(`已移动到 ${new Date(destination.date).toLocaleDateString('zh-CN')}`);
+    }
+    
+    return true;
+  };
+
+  /**
+   * 清理重复任务（保留最新的副本）
+   */
+  const deduplicateTasks = () => {
+    const duplicates = findDuplicateTasks();
+    
+    if (duplicates.length === 0) {
+      toast.info('数据检查完成', {
+        description: '没有发现重复任务'
+      });
+      return;
+    }
+    
+    let cleanedCount = 0;
+    
+    duplicates.forEach(({ taskId, locations }) => {
+      // 找出最新的位置（按日期排序，Backlog 视为最新）
+      const sortedLocations = locations.sort((a, b) => {
+        if (a.type === 'backlog') return -1;
+        if (b.type === 'backlog') return 1;
+        return b.dateString.localeCompare(a.dateString);
+      });
+      
+      const keepLocation = sortedLocations[0];
+      const removeLocations = sortedLocations.slice(1);
+      
+      console.log(`🔧 Task ${taskId} (${locations[0].title}): 保留 ${keepLocation.type}${keepLocation.dateString || ''}, 删除 ${removeLocations.length} 个副本`);
+      
+      // 删除旧副本
+      removeLocations.forEach(loc => {
+        if (loc.type === 'backlog') {
+          setBacklogTasks(prev => prev.filter(t => t.id !== taskId));
+        } else {
+          setDailyTasks(prev => {
+            const updated = { ...prev };
+            if (updated[loc.dateString]) {
+              updated[loc.dateString] = updated[loc.dateString].filter(
+                t => t.id !== taskId
+              );
+              // 清理空日期条目
+              if (updated[loc.dateString].length === 0) {
+                delete updated[loc.dateString];
+              }
+            }
+            return updated;
+          });
+        }
+        cleanedCount++;
+      });
+    });
+    
+    toast.success('数据清理完成', {
+      description: `找到 ${duplicates.length} 个重复任务，删除了 ${cleanedCount} 个副本`
+    });
+  };
+
+  /**
+   * 验证数据完整性
+   */
+  const validateDataIntegrity = () => {
+    const issues = [];
+    
+    // 检查重复任务
+    const duplicates = findDuplicateTasks();
+    if (duplicates.length > 0) {
+      issues.push({
+        type: 'duplicate',
+        count: duplicates.length,
+        severity: 'error',
+        message: `发现 ${duplicates.length} 个任务有重复副本`,
+        action: '立即清理',
+        fix: deduplicateTasks
+      });
+    }
+    
+    // 检查孤立的子任务
+    let orphanedSubtasks = 0;
+    Object.values(dailyTasks).forEach(dayTasks => {
+      dayTasks.forEach(task => {
+        if (task.subtasks) {
+          task.subtasks.forEach(subtask => {
+            if (subtask.parentTaskId !== task.id) {
+              orphanedSubtasks++;
+            }
+          });
+        }
+      });
+    });
+    
+    if (orphanedSubtasks > 0) {
+      issues.push({
+        type: 'orphaned',
+        count: orphanedSubtasks,
+        severity: 'warning',
+        message: `发现 ${orphanedSubtasks} 个子任务的父任务关联错误`
+      });
+    }
+    
+    // 检查无效的目标关联
+    let invalidGoalLinks = 0;
+    const checkTaskGoalLinks = (tasks) => {
+      tasks.forEach(task => {
+        if (task.weeklyGoalId && !weeklyGoals.find(g => g.id === task.weeklyGoalId)) {
+          invalidGoalLinks++;
+        }
+        if (task.yearlyGoalId && !yearlyGoals.find(g => g.id === task.yearlyGoalId)) {
+          invalidGoalLinks++;
+        }
+      });
+    };
+    
+    Object.values(dailyTasks).forEach(checkTaskGoalLinks);
+    checkTaskGoalLinks(backlogTasks);
+    
+    if (invalidGoalLinks > 0) {
+      issues.push({
+        type: 'invalid-links',
+        count: invalidGoalLinks,
+        severity: 'warning',
+        message: `发现 ${invalidGoalLinks} 个无效的目标关联`
+      });
+    }
+    
+    return issues;
+  };
+
+  // Helper function to find a task by ID (including subtasks) - 保留用于向后兼容
   const findTaskById = (taskId, taskList = null) => {
     const tasksToSearch = taskList || getCurrentDayTasks();
 
@@ -1282,45 +1749,14 @@ export default function Home() {
     );
   };
 
-  // 将 Backlog 任务移动到某一天
+  // 将 Backlog 任务移动到某一天 - 使用统一的 moveTask 函数
   const moveBacklogTaskToDay = (taskId, targetDate) => {
-    const task = backlogTasks.find((t) => t.id === taskId);
-    if (!task) return;
-
-    const dateString = getDateString(targetDate);
-    const currentTasks = dailyTasks[dateString] || [];
-    
-    // 添加到目标日期
-    const movedTask = {
-      ...task,
-      createdAt: targetDate,
-    };
-    setDailyTasks({ ...dailyTasks, [dateString]: [...currentTasks, movedTask] });
-    
-    // 从 backlog 中删除
-    setBacklogTasks(backlogTasks.filter((t) => t.id !== taskId));
+    return moveTask(taskId, { type: 'daily', date: targetDate }, { resetProgress: false });
   };
 
-  // 将某一天的任务移动到 Backlog
+  // 将某一天的任务移动到 Backlog - 使用统一的 moveTask 函数
   const moveDayTaskToBacklog = (taskId) => {
-    const task = findTaskById(taskId);
-    if (!task || task.isHabit) return; // 习惯任务不能移到 backlog
-
-    const dateString = getDateString(selectedDate);
-    const currentTasks = dailyTasks[dateString] || [];
-    
-    // 添加到 backlog
-    const movedTask = {
-      ...task,
-      createdAt: new Date(),
-    };
-    setBacklogTasks([...backlogTasks, movedTask]);
-    
-    // 从当天删除
-    setDailyTasks({
-      ...dailyTasks,
-      [dateString]: currentTasks.filter((t) => t.id !== taskId),
-    });
+    return moveTask(taskId, { type: 'backlog' }, { resetProgress: false });
   };
 
   const addSubtask = (parentTaskId, title, tagId) => {
@@ -1452,64 +1888,8 @@ export default function Home() {
   };
 
   const transferTaskToCurrentDay = (taskId, originalDate, targetDate) => {
-    const originalDateString = getDateString(originalDate);
-    const targetDateString = getDateString(targetDate);
-
-    if (originalDateString === targetDateString) {
-      // Already on the target day, no transfer needed
-      return;
-    }
-
-    setDailyTasks((prevDailyTasks) => {
-      const newDailyTasks = { ...prevDailyTasks };
-
-      // Find the task in its original day
-      const originalDayTasks = newDailyTasks[originalDateString] || [];
-      const taskToTransfer = findTaskById(taskId, originalDayTasks);
-
-      if (!taskToTransfer) {
-        console.warn(
-          "Task not found for transfer:",
-          taskId,
-          originalDateString
-        );
-        return prevDailyTasks; // Task not found, return original state
-      }
-
-      // Remove task from original day
-      const updatedOriginalTasks = removeTaskFromList(taskId, originalDayTasks);
-      newDailyTasks[originalDateString] = updatedOriginalTasks;
-
-      // Update the task's properties for the new day
-      const updatedTask = {
-        ...taskToTransfer,
-        createdAt: targetDate, // Set creation date to the actual current date
-        completed: false, // Reset completion status
-        timeSpent: 0, // Reset time spent
-        focusTime: 0, // Reset focus time
-        // Reset subtasks completion and time
-        subtasks: (taskToTransfer.subtasks || []).map((subtask) => ({
-          ...subtask,
-          completed: false,
-          timeSpent: 0,
-          focusTime: 0,
-          createdAt: targetDate,
-        })),
-      };
-
-      // Add to the current day's tasks
-      newDailyTasks[targetDateString] = [
-        ...(newDailyTasks[targetDateString] || []),
-        updatedTask,
-      ];
-
-      // Clean up empty original day entry if no tasks left
-      if (newDailyTasks[originalDateString]?.length === 0) {
-        delete newDailyTasks[originalDateString];
-      }
-
-      return newDailyTasks;
-    });
+    // 使用统一的 moveTask 函数，并重置进度
+    return moveTask(taskId, { type: 'daily', date: targetDate }, { resetProgress: true });
   };
 
   const updateTaskFocusTime = (id, focusTimeToAdd) => {
@@ -1544,6 +1924,7 @@ export default function Home() {
   const exportData = () => {
     const data = {
       dailyTasks,
+      backlogTasks, // 新增：导出 Backlog 任务
       customTags,
       habits,
       yearlyGoals,
@@ -1552,7 +1933,7 @@ export default function Home() {
       darkMode,
       theme,
       exportDate: new Date().toISOString(),
-      version: "3.3", // Update version for weekly goals support
+      version: "3.4", // 更新版本号以支持 Backlog
     };
     const dataStr = JSON.stringify(data, null, 2);
     const dataBlob = new Blob([dataStr], { type: "application/json" });
@@ -1607,6 +1988,28 @@ export default function Home() {
             }
             if (data.customTags) setCustomTags(data.customTags);
             if (data.habits) setHabits(data.habits);
+            if (data.backlogTasks) {
+              // 导入 Backlog 任务
+              const convertedBacklogTasks = data.backlogTasks.map((task) => ({
+                ...task,
+                createdAt: new Date(task.createdAt),
+                focusTime: task.focusTime || 0,
+                timeSpent: task.timeSpent || 0,
+                subtasks: (task.subtasks || []).map((subtask) => ({
+                  ...subtask,
+                  createdAt: new Date(subtask.createdAt || task.createdAt),
+                  focusTime: subtask.focusTime || 0,
+                  timeSpent: subtask.timeSpent || 0,
+                  completed: !!subtask.completed,
+                  parentTaskId: task.id,
+                  subtasks: [],
+                })),
+                subtasksExpanded: task.subtasksExpanded || false,
+                completed: !!task.completed,
+                isBacklog: true, // 确保标记为 Backlog 任务
+              }));
+              setBacklogTasks(convertedBacklogTasks);
+            }
             if (data.yearlyGoals) {
               // Convert date strings back to Date objects
               const convertedGoals = data.yearlyGoals.map((goal) => ({
@@ -2028,6 +2431,8 @@ export default function Home() {
                 onExportData={exportData}
                 onImportData={importData}
                 onOpenWebRTCShare={() => setShowWebRTCShare(true)}
+                onValidateData={handleValidateData}
+                onDeduplicateTasks={handleDeduplicateTasks}
               />
             )}
 

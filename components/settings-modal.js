@@ -14,6 +14,8 @@ import {
   Check,
   Share,
   Wifi,
+  Shield,
+  AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -26,6 +28,8 @@ export function SettingsModal({
   theme,
   onThemeChange,
   onOpenWebRTCShare, // New prop for opening WebRTC share
+  onValidateData, // New prop for data validation
+  onDeduplicateTasks, // New prop for deduplicating tasks
 }) {
   const themes = [
     {
@@ -492,6 +496,62 @@ export function SettingsModal({
                     className="border-2 border-gray-300 dark:border-gray-600 hover:border-primary/70 dark:hover:border-primary/80 rounded-xl font-extrabold w-12 h-12 p-0"
                   >
                     <Upload className="h-4 w-4" />
+                  </Button>
+                </motion.div>
+              </div>
+            </motion.div>
+
+            {/* Data Integrity Check */}
+            <motion.div variants={itemVariants}>
+              <div className="flex items-center justify-between p-4 rounded-xl border-2 border-green-200 dark:border-green-700 bg-green-50 dark:bg-green-800/20">
+                <div className="flex items-center gap-3">
+                  <Shield className="h-5 w-5 text-green-600 dark:text-green-400" />
+                  <div>
+                    <div className="font-extrabold text-green-700 dark:text-green-300">
+                      Data Integrity
+                    </div>
+                    <div className="text-sm text-green-600 dark:text-green-400 font-medium">
+                      Check for duplicate or broken tasks
+                    </div>
+                  </div>
+                </div>
+                <motion.div
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <Button
+                    onClick={onValidateData}
+                    className="bg-green-600 hover:bg-green-700 text-white border-0 rounded-xl font-extrabold w-12 h-12 p-0"
+                  >
+                    <Shield className="h-4 w-4" />
+                  </Button>
+                </motion.div>
+              </div>
+            </motion.div>
+
+            {/* Clean Duplicates */}
+            <motion.div variants={itemVariants}>
+              <div className="flex items-center justify-between p-4 rounded-xl border-2 border-orange-200 dark:border-orange-700 bg-orange-50 dark:bg-orange-800/20">
+                <div className="flex items-center gap-3">
+                  <AlertTriangle className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+                  <div>
+                    <div className="font-extrabold text-orange-700 dark:text-orange-300">
+                      Clean Duplicates
+                    </div>
+                    <div className="text-sm text-orange-600 dark:text-orange-400 font-medium">
+                      Remove duplicate tasks (keep latest)
+                    </div>
+                  </div>
+                </div>
+                <motion.div
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <Button
+                    onClick={onDeduplicateTasks}
+                    className="bg-orange-600 hover:bg-orange-700 text-white border-0 rounded-xl font-extrabold w-12 h-12 p-0"
+                  >
+                    <AlertTriangle className="h-4 w-4" />
                   </Button>
                 </motion.div>
               </div>
