@@ -17,6 +17,9 @@ const nextConfig = {
   
   // Enable standalone output for Docker production builds
   output: "standalone",
+  
+  // Transpile local packages (for monorepo workspace packages)
+  transpilePackages: ['@wonder-lab/auth-sdk'],
 };
 
 export default nextConfig;

@@ -2,7 +2,13 @@ import { NextResponse } from 'next/server';
 import { promises as fs } from 'fs';
 import path from 'path';
 
-const BACKUP_DIR = process.env.BACKUP_DIR || '/app/data/backups';
+// 根据环境选择备份目录
+// 开发环境：项目本地的 data 目录
+// 生产环境（Docker）：容器内的 /app/data 目录
+const BACKUP_DIR = process.env.BACKUP_DIR || 
+  (process.env.NODE_ENV === 'production' 
+    ? '/app/data/backups' 
+    : path.join(process.cwd(), 'data', 'backups'));
 
 // 确保备份目录存在
 async function ensureBackupDir() {

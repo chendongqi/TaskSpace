@@ -1,17 +1,16 @@
 # Build stage
 FROM node:18-alpine AS builder
 
-WORKDIR /app
+WORKDIR /build
 
-# Copy package files
-COPY package*.json ./
-COPY jsconfig.json ./
+# Copy auth-sdk package (needed for file: dependency)
+COPY ../../packages/auth-sdk ./packages/auth-sdk
 
-# Install all dependencies for building
-RUN npm ci
-
-# Copy source code
+# Copy taskspace app
 COPY . .
+
+# Install dependencies (npm will handle file: dependency automatically)
+RUN npm install
 
 # Build the application
 RUN npm run build
@@ -22,9 +21,9 @@ FROM node:18-alpine AS production
 WORKDIR /app
 
 # Copy built application
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
-COPY --from=builder /app/public ./public
+COPY --from=builder /build/.next/standalone ./
+COPY --from=builder /build/.next/static ./.next/static
+COPY --from=builder /build/public ./public
 
 # Create non-root user for security (use host user ID to avoid permission issues)
 RUN addgroup -g 1000 -S appgroup || true

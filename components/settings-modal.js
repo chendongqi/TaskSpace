@@ -16,8 +16,13 @@ import {
   Wifi,
   Shield,
   AlertTriangle,
+  LogIn,
+  LogOut,
+  User,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useRouter } from "next/navigation";
+import { dataStorage } from "@/lib/storage"; // 导入 dataStorage
 
 export function SettingsModal({
   onClose,
@@ -30,7 +35,30 @@ export function SettingsModal({
   onOpenWebRTCShare, // New prop for opening WebRTC share
   onValidateData, // New prop for data validation
   onDeduplicateTasks, // New prop for deduplicating tasks
+  user, // User object from auth
+  authenticated, // Authentication status
+  onLogout, // Logout handler
 }) {
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    if (onLogout) {
+      // ⭐ 清空本地数据以防止数据泄露
+      console.log('🗑️  Logging out, clearing local data...');
+      dataStorage.clearAllData();
+      
+      await onLogout();
+      onClose();
+      
+      // 重定向到登录页
+      router.push('/login');
+    }
+  };
+
+  const handleLogin = () => {
+    onClose();
+    router.push("/login");
+  };
   const themes = [
     {
       id: "default",
@@ -365,6 +393,65 @@ export function SettingsModal({
                     </motion.button>
                   ))}
                 </div>
+              </div>
+            </motion.div>
+
+            {/* User Account Section */}
+            <motion.div variants={itemVariants}>
+              <div className="p-4 rounded-xl border-2 border-primary/30 dark:border-primary/40 bg-primary/5 dark:bg-primary/10">
+                {authenticated && user ? (
+                  // 已登录状态（同时检查 authenticated 和 user 存在）
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3 pb-3 border-b border-primary/20">
+                      <div className="w-10 h-10 rounded-full bg-primary/20 dark:bg-primary/30 flex items-center justify-center">
+                        <User className="h-5 w-5 text-primary" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-extrabold text-gray-900 dark:text-gray-100 truncate">
+                          {user?.profile?.name || user?.email || "用户"}
+                        </div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400 font-medium truncate">
+                          {user?.email}
+                        </div>
+                        {user?.membership && (
+                          <div className="text-xs text-primary font-bold mt-1">
+                            {user.membership.tier === 'FREE' ? '免费会员' : 
+                             user.membership.tier === 'PREMIUM' ? '高级会员' : 
+                             user.membership.tier}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <Button
+                      onClick={handleLogout}
+                      variant="outline"
+                      size="sm"
+                      className="w-full border-2 border-red-300 dark:border-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 hover:border-red-400 dark:hover:border-red-600 rounded-xl font-extrabold"
+                    >
+                      <LogOut className="h-4 w-4 mr-2" />
+                      登出账号
+                    </Button>
+                  </div>
+                ) : (
+                  // 未登录状态
+                  <div className="space-y-3">
+                    <div className="text-center py-2">
+                      <div className="font-extrabold text-gray-900 dark:text-gray-100 mb-1">
+                        登录以同步数据
+                      </div>
+                      <div className="text-sm text-gray-500 dark:text-gray-400 font-medium">
+                        在多设备间访问你的任务和目标
+                      </div>
+                    </div>
+                    <Button
+                      onClick={handleLogin}
+                      className="w-full bg-primary hover:bg-primary/90 border-0 rounded-xl font-extrabold"
+                    >
+                      <LogIn className="h-4 w-4 mr-2" />
+                      登录 / 注册
+                    </Button>
+                  </div>
+                )}
               </div>
             </motion.div>
 
