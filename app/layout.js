@@ -2,6 +2,7 @@ import "./globals.css";
 
 import { Nunito } from "next/font/google";
 import { Toaster } from "sonner";
+import { AuthProvider } from "@wonder-lab/auth-sdk";
 
 const nunito = Nunito({
   subsets: ["latin"],
@@ -21,8 +22,15 @@ export default function RootLayout({ children }) {
         className={`${nunito.variable} antialiased font-nunito`}
         suppressHydrationWarning
       >
-        {children}
-        <Toaster position="top-center" richColors closeButton />
+        <AuthProvider
+          config={{
+            supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || 'http://localhost:3204',
+            supabaseAnonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
+          }}
+        >
+          {children}
+          <Toaster position="top-center" richColors closeButton />
+        </AuthProvider>
       </body>
     </html>
   );

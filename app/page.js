@@ -3,6 +3,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
+import { useAuth } from "@wonder-lab/auth-sdk";
 import { DayNightCycle, AnimatedNumber } from "@/components/day-night-cycle";
 import { AnimatedYear } from "@/components/animated-year";
 import { WeeklyCalendar } from "@/components/weekly-calender";
@@ -17,6 +18,8 @@ import { TimerModal } from "@/components/timer-modal";
 import { SettingsModal } from "@/components/settings-modal";
 import { IntroScreen } from "@/components/intro-screen";
 import { WebRTCShareModal } from "@/components/webrtc-share-modal";
+import { AnonymousDataMergeDialog } from "@/components/anonymous-data-merge-dialog";
+import { AnonymousWarningDialog } from "@/components/anonymous-warning-dialog";
 import { YearlyGoalsTracker } from "@/components/yearly-goals-tracker";
 import { QuarterlyGoalsTracker } from "@/components/quarterly-goals-tracker";
 import { WeeklyGoalsTracker } from "@/components/weekly-goals-tracker";
@@ -24,6 +27,9 @@ import { dataStorage } from "@/lib/storage";
 import "@/lib/debug"; // 导入调试工具
 
 export default function Home() {
+  // 获取认证状态
+  const { user, authenticated, logout } = useAuth();
+  
   const [darkMode, setDarkMode] = useState(false);
   const [theme, setTheme] = useState("default");
   const [dailyTasks, setDailyTasks] = useState({});
@@ -49,6 +55,13 @@ export default function Home() {
   const [showWebRTCShare, setShowWebRTCShare] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false); // 移动端更多菜单
   const [isDataLoaded, setIsDataLoaded] = useState(false); // 防止初始化时触发备份
+  
+  // 匿名数据合并对话框状态
+  const [showAnonymousMergeDialog, setShowAnonymousMergeDialog] = useState(false);
+  const [anonymousDataToMerge, setAnonymousDataToMerge] = useState(null);
+  
+  // 匿名使用风险提醒对话框状态
+  const [showAnonymousWarning, setShowAnonymousWarning] = useState(false);
   
   // 确认对话框状态
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
@@ -76,10 +89,24 @@ export default function Home() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        // 确保存储系统已初始化，并等待数据恢复完成
+        // 设置用户 ID 提供者，让 storage 可以根据登录状态获取用户 ID
+        dataStorage.setUserIdProvider(() => {
+          return user?.id || null;
+        });
+        
+        // ⭐ 确保存储系统已初始化，并等待数据恢复完成
+        // 注意：这里可能会返回 needsAnonymousDataMerge，需要处理
         const restoredData = await dataStorage.initializeStorage();
         
         console.log('📥 Data restoration result:', restoredData);
+        
+        // ⭐ 如果检测到匿名数据需要合并，显示对话框并等待用户选择
+        if (restoredData && restoredData.needsAnonymousDataMerge) {
+          console.log('📋 Anonymous data detected on mount, showing merge dialog...');
+          setAnonymousDataToMerge(restoredData.anonymousData);
+          setShowAnonymousMergeDialog(true);
+          return; // 等待用户选择，不加载数据
+        }
         
         // 加载所有数据（包括恢复的数据）
         const loadDataItem = (key, setter, processor = null) => {
@@ -212,6 +239,210 @@ export default function Home() {
     
     loadData();
   }, []);
+
+  // 当用户登录/登出时更新 storage 的用户 ID 提供者并重新加载数据
+  useEffect(() => {
+    const handleUserChange = async () => {
+      dataStorage.setUserIdProvider(() => {
+        return user?.id || null;
+      });
+      
+      // 检测用户切换
+      if (dataStorage.checkUserSwitch()) {
+        console.log('🔄 User switched, checking for anonymous data...');
+        
+        // ⭐ 先尝试初始化，检查是否有匿名数据需要处理（强制重新初始化）
+        const initResult = await dataStorage.initializeStorage({ 
+          forceReinit: true,  // ⭐ 强制重新初始化
+          skipAnonymousCheck: false 
+        });
+        
+        // 如果有匿名数据需要用户确认
+        if (initResult && initResult.needsAnonymousDataMerge) {
+          console.log('📋 Anonymous data detected, showing merge dialog...');
+          setAnonymousDataToMerge(initResult.anonymousData);
+          setShowAnonymousMergeDialog(true);
+          return; // 等待用户选择
+        }
+        
+        // 没有匿名数据，直接重新加载数据
+        await reloadAllData(initResult);
+      } else {
+        // 用户未切换，只更新 user ID 标记
+        dataStorage.updateCurrentUserId();
+      }
+    };
+    
+    handleUserChange();
+  }, [user, authenticated]); // 监听 user 和 authenticated 的变化
+
+  // 重新加载所有数据的辅助函数
+  const reloadAllData = async (restoredData) => {
+    // 重新加载所有数据
+    const loadDataItem = (key, setter, processor = null) => {
+      let data = null;
+      
+      // 优先使用恢复的数据
+      if (restoredData && restoredData[key]) {
+        data = restoredData[key];
+        console.log(`📦 Using restored data for ${key}`);
+      } else {
+        // 否则从 localStorage 读取
+        data = dataStorage.getLocalData(key);
+      }
+      
+      // 应用处理器（如果提供）
+      if (data && processor) {
+        data = processor(data);
+      }
+      
+      // 设置状态（如果数据存在）
+      if (data !== null && data !== undefined) {
+        setter(data);
+      }
+    };
+    
+    // 重新加载所有数据
+    loadDataItem("darkMode", setDarkMode);
+    loadDataItem("theme", setTheme);
+    
+    loadDataItem("dailyTasks", setDailyTasks, (savedTasks) => {
+      const converted = {};
+      Object.keys(savedTasks).forEach((dateKey) => {
+        converted[dateKey] = savedTasks[dateKey].map((task) => {
+          const processedSubtasks = (task.subtasks || []).map((subtask) => ({
+            ...subtask,
+            createdAt: new Date(subtask.createdAt || task.createdAt),
+            focusTime: subtask.focusTime || 0,
+            timeSpent: subtask.timeSpent || 0,
+            completed: !!subtask.completed,
+            parentTaskId: task.id,
+            subtasks: [],
+          }));
+
+          return {
+            ...task,
+            createdAt: new Date(task.createdAt),
+            focusTime: task.focusTime || 0,
+            timeSpent: task.timeSpent || 0,
+            completed: !!task.completed,
+            subtasks: processedSubtasks,
+            subtasksExpanded: task.subtasksExpanded || false,
+          };
+        });
+      });
+      return converted;
+    });
+    
+    loadDataItem("customTags", setCustomTags);
+    loadDataItem("habits", setHabits);
+    
+    loadDataItem("backlogTasks", setBacklogTasks, (savedBacklog) => {
+      return savedBacklog.map((task) => {
+        const processedSubtasks = (task.subtasks || []).map((subtask) => ({
+          ...subtask,
+          createdAt: new Date(subtask.createdAt || task.createdAt),
+          focusTime: subtask.focusTime || 0,
+          timeSpent: subtask.timeSpent || 0,
+          completed: !!subtask.completed,
+          parentTaskId: task.id,
+          subtasks: [],
+        }));
+        
+        return {
+          ...task,
+          createdAt: new Date(task.createdAt),
+          focusTime: task.focusTime || 0,
+          timeSpent: task.timeSpent || 0,
+          completed: !!task.completed,
+          subtasks: processedSubtasks,
+          subtasksExpanded: task.subtasksExpanded || false,
+        };
+      });
+    });
+    
+    loadDataItem("yearlyGoals", setYearlyGoals, (savedGoals) => {
+      return savedGoals.map((goal) => ({
+        ...goal,
+        createdAt: new Date(goal.createdAt),
+      }));
+    });
+    
+    loadDataItem("quarterlyGoals", setQuarterlyGoals, (savedGoals) => {
+      return savedGoals.map((goal) => ({
+        ...goal,
+        createdAt: new Date(goal.createdAt),
+        startDate: new Date(goal.startDate),
+        endDate: new Date(goal.endDate),
+      }));
+    });
+    
+    loadDataItem("weeklyGoals", setWeeklyGoals, (savedGoals) => {
+      return savedGoals.map((goal) => ({
+        ...goal,
+        createdAt: new Date(goal.createdAt),
+        startDate: new Date(goal.startDate),
+        endDate: new Date(goal.endDate),
+      }));
+    });
+    
+    console.log('✅ Data reloaded');
+  };
+
+  // 处理匿名数据合并
+  const handleMergeAnonymousData = async () => {
+    console.log('✅ User chose to merge anonymous data');
+    setShowAnonymousMergeDialog(false);
+    
+    // 使用 mergeAnonymousData 选项重新初始化（强制重新初始化）
+    const restoredData = await dataStorage.initializeStorage({ 
+      forceReinit: true,
+      skipAnonymousCheck: true,
+      mergeAnonymousData: true 
+    });
+    
+    // 重新加载所有数据
+    await reloadAllData(restoredData);
+    
+    toast.success('数据合并成功', {
+      description: '匿名数据已合并到您的账号并同步到云端'
+    });
+  };
+
+  // 处理丢弃匿名数据
+  const handleDiscardAnonymousData = async () => {
+    console.log('🗑️  User chose to discard anonymous data');
+    setShowAnonymousMergeDialog(false);
+    
+    // 使用 discardAnonymousData 选项重新初始化（强制重新初始化）
+    const restoredData = await dataStorage.initializeStorage({ 
+      forceReinit: true,
+      skipAnonymousCheck: true,
+      discardAnonymousData: true 
+    });
+    
+    // 重新加载所有数据
+    await reloadAllData(restoredData);
+    
+    toast.info('已清空本地数据', {
+      description: '已从云端恢复您的账号数据'
+    });
+  };
+
+  // 处理匿名使用风险提醒 - 用户点击"我知道了"
+  const handleDismissAnonymousWarning = () => {
+    console.log('✓ User dismissed anonymous warning');
+    dataStorage.markAnonymousWarningSeen();
+    setShowAnonymousWarning(false);
+  };
+
+  // 处理匿名使用风险提醒 - 用户点击"立即登录/注册"
+  const handleOpenSettingsFromWarning = () => {
+    console.log('→ User wants to login from warning');
+    dataStorage.markAnonymousWarningSeen();
+    setShowAnonymousWarning(false);
+    setShowSettings(true); // 打开设置页面，用户可以在那里登录
+  };
 
   // Apply theme classes to document
   useEffect(() => {
@@ -349,6 +580,12 @@ export default function Home() {
   useEffect(() => {
     if (isDataLoaded) {
       dataStorage.setLocalData("dailyTasks", dailyTasks);
+      
+      // ⭐ 检查是否应该显示匿名使用风险提醒
+      if (dataStorage.shouldShowAnonymousWarning()) {
+        console.log('⚠️  Should show anonymous warning');
+        setShowAnonymousWarning(true);
+      }
     }
   }, [dailyTasks, isDataLoaded]);
 
@@ -361,30 +598,60 @@ export default function Home() {
   useEffect(() => {
     if (isDataLoaded) {
       dataStorage.setLocalData("backlogTasks", backlogTasks);
+      
+      // ⭐ 检查是否应该显示匿名使用风险提醒
+      if (dataStorage.shouldShowAnonymousWarning()) {
+        console.log('⚠️  Should show anonymous warning');
+        setShowAnonymousWarning(true);
+      }
     }
   }, [backlogTasks, isDataLoaded]);
 
   useEffect(() => {
     if (isDataLoaded) {
       dataStorage.setLocalData("habits", habits);
+      
+      // ⭐ 检查是否应该显示匿名使用风险提醒
+      if (dataStorage.shouldShowAnonymousWarning()) {
+        console.log('⚠️  Should show anonymous warning');
+        setShowAnonymousWarning(true);
+      }
     }
   }, [habits, isDataLoaded]);
 
   useEffect(() => {
     if (isDataLoaded) {
       dataStorage.setLocalData("yearlyGoals", yearlyGoals);
+      
+      // ⭐ 检查是否应该显示匿名使用风险提醒
+      if (dataStorage.shouldShowAnonymousWarning()) {
+        console.log('⚠️  Should show anonymous warning');
+        setShowAnonymousWarning(true);
+      }
     }
   }, [yearlyGoals, isDataLoaded]);
 
   useEffect(() => {
     if (isDataLoaded) {
       dataStorage.setLocalData("quarterlyGoals", quarterlyGoals);
+      
+      // ⭐ 检查是否应该显示匿名使用风险提醒
+      if (dataStorage.shouldShowAnonymousWarning()) {
+        console.log('⚠️  Should show anonymous warning');
+        setShowAnonymousWarning(true);
+      }
     }
   }, [quarterlyGoals, isDataLoaded]);
 
   useEffect(() => {
     if (isDataLoaded) {
       dataStorage.setLocalData("weeklyGoals", weeklyGoals);
+      
+      // ⭐ 检查是否应该显示匿名使用风险提醒
+      if (dataStorage.shouldShowAnonymousWarning()) {
+        console.log('⚠️  Should show anonymous warning');
+        setShowAnonymousWarning(true);
+      }
     }
   }, [weeklyGoals, isDataLoaded]);
 
@@ -2433,6 +2700,9 @@ export default function Home() {
                 onOpenWebRTCShare={() => setShowWebRTCShare(true)}
                 onValidateData={handleValidateData}
                 onDeduplicateTasks={handleDeduplicateTasks}
+                user={user}
+                authenticated={authenticated}
+                onLogout={logout}
               />
             )}
 
@@ -2709,6 +2979,27 @@ export default function Home() {
               </div>
             </motion.div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* 匿名数据合并对话框 */}
+      <AnimatePresence>
+        {showAnonymousMergeDialog && anonymousDataToMerge && (
+          <AnonymousDataMergeDialog
+            onMerge={handleMergeAnonymousData}
+            onDiscard={handleDiscardAnonymousData}
+            anonymousDataSummary={anonymousDataToMerge}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* 匿名使用风险提醒对话框 */}
+      <AnimatePresence>
+        {showAnonymousWarning && (
+          <AnonymousWarningDialog
+            onDismiss={handleDismissAnonymousWarning}
+            onOpenSettings={handleOpenSettingsFromWarning}
+          />
         )}
       </AnimatePresence>
     </>
