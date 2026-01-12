@@ -458,7 +458,7 @@ export function AddSubtaskModal({
                     className="flex items-center gap-2"
                   >
                     <Plus className="h-5 w-5" />
-                    Add Subtask
+                    添加子任务
                   </motion.div>
                 </Button>
               </motion.div>
@@ -471,7 +471,7 @@ export function AddSubtaskModal({
                   onClick={onClose}
                   className="px-6 py-6 rounded-xl font-bold border-2 border-gray-300 hover:border-primary/70 dark:border-gray-600 dark:hover:border-primary/80 dark:text-gray-100"
                 >
-                  Cancel
+                  取消
                 </Button>
               </motion.div>
             </motion.div>

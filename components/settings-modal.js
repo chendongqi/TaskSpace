@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { useState } from "react";
 import {
   X,
   Download,
@@ -9,13 +10,8 @@ import {
   Moon,
   Settings,
   Heart,
-  ExternalLink,
   Palette,
   Check,
-  Share,
-  Wifi,
-  Shield,
-  AlertTriangle,
   LogIn,
   LogOut,
   User,
@@ -23,6 +19,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { dataStorage } from "@/lib/storage"; // 导入 dataStorage
+import { WeChatDonationModal } from "@/components/wechat-donation-modal";
 
 export function SettingsModal({
   onClose,
@@ -32,14 +29,12 @@ export function SettingsModal({
   onImportData,
   theme,
   onThemeChange,
-  onOpenWebRTCShare, // New prop for opening WebRTC share
-  onValidateData, // New prop for data validation
-  onDeduplicateTasks, // New prop for deduplicating tasks
   user, // User object from auth
   authenticated, // Authentication status
   onLogout, // Logout handler
 }) {
   const router = useRouter();
+  const [showWeChatDonation, setShowWeChatDonation] = useState(false);
 
   const handleLogout = async () => {
     if (onLogout) {
@@ -204,16 +199,11 @@ export function SettingsModal({
   };
 
   const handleBuyMeCoffee = () => {
-    window.open("https://coff.ee/anoy", "_blank");
+    setShowWeChatDonation(true);
   };
 
-  const handleTwitterClick = () => {
-    window.open("https://x.com/Anoyroyc", "_blank");
-  };
-
-  const handleWebRTCShare = () => {
-    onClose(); // Close settings first
-    onOpenWebRTCShare(); // Open WebRTC share modal
+  const handleWonderLabClick = () => {
+    window.open("https://home.wonlab.top", "_blank");
   };
 
   const ThemePreview = ({ themeData, isSelected, onClick }) => (
@@ -315,7 +305,7 @@ export function SettingsModal({
                 <Settings className="h-5 w-5 text-primary" />
               </motion.div>
               <h2 className="text-2xl font-extrabold text-gray-900 dark:text-gray-100 tracking-wide">
-                Settings
+                设置
               </h2>
             </div>
             <Button
@@ -341,10 +331,10 @@ export function SettingsModal({
                   <Palette className="h-5 w-5 text-primary" />
                   <div>
                     <div className="font-extrabold text-gray-900 dark:text-gray-100">
-                      Theme
+                      主题
                     </div>
                     <div className="text-sm text-gray-500 dark:text-gray-400 font-medium">
-                      Choose your style
+                      选择你的风格
                     </div>
                   </div>
                 </div>
@@ -471,12 +461,12 @@ export function SettingsModal({
                   </motion.div>
                   <div>
                     <div className="font-extrabold text-gray-900 dark:text-gray-100">
-                      {darkMode ? "Dark Mode" : "Light Mode"}
+                      {darkMode ? "深色模式" : "浅色模式"}
                     </div>
                     <div className="text-sm text-gray-500 dark:text-gray-400 font-medium">
                       {darkMode
-                        ? "Switch to light theme"
-                        : "Switch to dark theme"}
+                        ? "切换到浅色主题"
+                        : "切换到深色主题"}
                     </div>
                   </div>
                 </div>
@@ -500,34 +490,6 @@ export function SettingsModal({
               </div>
             </motion.div>
 
-            {/* WebRTC Share */}
-            <motion.div variants={itemVariants}>
-              <div className="flex items-center justify-between p-4 rounded-xl border-2 border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-800/20">
-                <div className="flex items-center gap-3">
-                  <Wifi className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                  <div>
-                    <div className="font-extrabold text-blue-700 dark:text-blue-300">
-                      Sync Tasks (P2P)
-                    </div>
-                    <div className="text-sm text-blue-600 dark:text-blue-400 font-medium">
-                      Sync your tasks from/with another device
-                    </div>
-                  </div>
-                </div>
-                <motion.div
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  <Button
-                    onClick={handleWebRTCShare}
-                    className="bg-blue-600 hover:bg-blue-700 text-white border-0 rounded-xl font-extrabold w-12 h-12 p-0"
-                  >
-                    <Share className="h-4 w-4" />
-                  </Button>
-                </motion.div>
-              </div>
-            </motion.div>
-
             {/* Export Data */}
             <motion.div variants={itemVariants}>
               <div className="flex items-center justify-between p-4 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/80">
@@ -535,10 +497,10 @@ export function SettingsModal({
                   <Download className="h-5 w-5 text-primary" />
                   <div>
                     <div className="font-extrabold text-gray-900 dark:text-gray-100">
-                      Export Data
+                      导出数据
                     </div>
                     <div className="text-sm text-gray-500 dark:text-gray-400 font-medium">
-                      Backup your tasks and habits
+                      备份你的任务和习惯
                     </div>
                   </div>
                 </div>
@@ -565,10 +527,10 @@ export function SettingsModal({
                   <Upload className="h-5 w-5 text-primary" />
                   <div>
                     <div className="font-extrabold text-gray-900 dark:text-gray-100">
-                      Import Data
+                      导入数据
                     </div>
                     <div className="text-sm text-gray-500 dark:text-gray-400 font-medium">
-                      Restore from backup file
+                      从备份文件恢复
                     </div>
                   </div>
                 </div>
@@ -588,62 +550,6 @@ export function SettingsModal({
               </div>
             </motion.div>
 
-            {/* Data Integrity Check */}
-            <motion.div variants={itemVariants}>
-              <div className="flex items-center justify-between p-4 rounded-xl border-2 border-green-200 dark:border-green-700 bg-green-50 dark:bg-green-800/20">
-                <div className="flex items-center gap-3">
-                  <Shield className="h-5 w-5 text-green-600 dark:text-green-400" />
-                  <div>
-                    <div className="font-extrabold text-green-700 dark:text-green-300">
-                      Data Integrity
-                    </div>
-                    <div className="text-sm text-green-600 dark:text-green-400 font-medium">
-                      Check for duplicate or broken tasks
-                    </div>
-                  </div>
-                </div>
-                <motion.div
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  <Button
-                    onClick={onValidateData}
-                    className="bg-green-600 hover:bg-green-700 text-white border-0 rounded-xl font-extrabold w-12 h-12 p-0"
-                  >
-                    <Shield className="h-4 w-4" />
-                  </Button>
-                </motion.div>
-              </div>
-            </motion.div>
-
-            {/* Clean Duplicates */}
-            <motion.div variants={itemVariants}>
-              <div className="flex items-center justify-between p-4 rounded-xl border-2 border-orange-200 dark:border-orange-700 bg-orange-50 dark:bg-orange-800/20">
-                <div className="flex items-center gap-3">
-                  <AlertTriangle className="h-5 w-5 text-orange-600 dark:text-orange-400" />
-                  <div>
-                    <div className="font-extrabold text-orange-700 dark:text-orange-300">
-                      Clean Duplicates
-                    </div>
-                    <div className="text-sm text-orange-600 dark:text-orange-400 font-medium">
-                      Remove duplicate tasks (keep latest)
-                    </div>
-                  </div>
-                </div>
-                <motion.div
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  <Button
-                    onClick={onDeduplicateTasks}
-                    className="bg-orange-600 hover:bg-orange-700 text-white border-0 rounded-xl font-extrabold w-12 h-12 p-0"
-                  >
-                    <AlertTriangle className="h-4 w-4" />
-                  </Button>
-                </motion.div>
-              </div>
-            </motion.div>
-
             {/* Buy Me a Coffee */}
             <motion.div variants={itemVariants}>
               <motion.div
@@ -655,8 +561,7 @@ export function SettingsModal({
                   className="w-full bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 text-white font-extrabold py-4 rounded-xl shadow-lg border-0"
                 >
                   <Heart className="h-5 w-5 mr-2 fill-current" />
-                  Buy Me a Coffee
-                  <ExternalLink className="h-4 w-4 ml-2" />
+                  请我喝咖啡
                 </Button>
               </motion.div>
             </motion.div>
@@ -668,7 +573,7 @@ export function SettingsModal({
             >
               <div className="text-center space-y-3">
                 <div className="text-lg font-extrabold text-primary">
-                  Prio Space V1.3.0
+                  Task Space V2.0.0
                 </div>
                 <div className="text-sm font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                   Focus • Track • Achieve
@@ -677,31 +582,16 @@ export function SettingsModal({
                 {/* vibecoded section */}
                 <div className="pt-3">
                   <div className="text-sm text-gray-600 dark:text-gray-300 font-medium -mt-1">
-                    <span className="text-lg font-extrabold text-primary">
-                      Coded
-                    </span>{" "}
-                    with{" "}
-                    <motion.span
-                      animate={{ scale: [1, 1.2, 1] }}
-                      transition={{
-                        duration: 1,
-                        repeat: Infinity,
-                        repeatDelay: 2,
-                      }}
-                      className="text-red-500 inline-block"
-                    >
-                      ❤️
-                    </motion.span>{" "}
-                    <br />
-                    by{" "}
+                    由{" "}
                     <motion.button
-                      onClick={handleTwitterClick}
+                      onClick={handleWonderLabClick}
                       className="text-primary hover:text-primary/80 font-extrabold underline underline-offset-2 transition-colors"
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
                     >
-                      Anoy Roy Chowdhury
+                      WonderLab
                     </motion.button>
+                    {" "}开发
                   </div>
                 </div>
               </div>
@@ -709,6 +599,12 @@ export function SettingsModal({
           </motion.div>
         </div>
       </motion.div>
+      
+      {/* WeChat Donation Modal */}
+      <WeChatDonationModal
+        show={showWeChatDonation}
+        onClose={() => setShowWeChatDonation(false)}
+      />
     </motion.div>
   );
 }

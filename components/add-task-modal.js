@@ -174,10 +174,10 @@ export function AddTaskModal({
     nextWeek.setDate(nextWeek.getDate() + 7);
 
     return [
-      { label: "Today", date: today, isBacklog: false },
-      { label: "Tomorrow", date: tomorrow, isBacklog: false },
-      { label: "Next Week", date: nextWeek, isBacklog: false },
-      { label: "Backlog", date: null, isBacklog: true }, // 新增 Backlog 选项
+      { label: "今天", date: today, isBacklog: false },
+      { label: "明天", date: tomorrow, isBacklog: false },
+      { label: "下周", date: nextWeek, isBacklog: false },
+      { label: "待办", date: null, isBacklog: true }, // 新增 Backlog 选项
     ];
   };
 
@@ -337,7 +337,7 @@ export function AddTaskModal({
                 <Plus className="h-5 w-5 text-primary" />
               </motion.div>
               <h2 className="text-2xl font-extrabold text-gray-900 dark:text-gray-100 tracking-wide">
-                Create New
+                创建新任务
               </h2>
             </div>
             <Button
@@ -359,7 +359,7 @@ export function AddTaskModal({
             {/* Task Title */}
             <motion.div variants={itemVariants} className="space-y-1">
               <Input
-                placeholder="What needs to be done?"
+                placeholder="需要做什么？"
                 value={taskTitle}
                 onChange={(e) => setTaskTitle(e.target.value)}
                 onKeyDown={(e) =>
@@ -374,7 +374,7 @@ export function AddTaskModal({
             <motion.div variants={itemVariants} className="space-y-3">
               <label className="text-sm font-extrabold text-gray-700 dark:text-gray-200 uppercase tracking-wider flex items-center gap-2">
                 <Calendar className="h-4 w-4" />
-                Date
+                日期
               </label>
 
               {/* Quick Date Options */}
@@ -426,12 +426,12 @@ export function AddTaskModal({
             <motion.div variants={itemVariants} className="space-y-3">
               <label className="text-sm font-extrabold text-gray-700 dark:text-gray-200 uppercase tracking-wider flex items-center gap-2">
                 <Tag className="h-4 w-4" />
-                Category
+                分类
               </label>
 
               <Select value={selectedTag} onValueChange={setSelectedTag}>
                 <SelectTrigger className="border-2 border-gray-300 focus:border-primary/70 font-extrabold dark:border-gray-600 dark:focus:border-primary/80 dark:bg-gray-800 dark:text-gray-100 rounded-xl py-3">
-                  <SelectValue placeholder="Choose a category (optional)" />
+                  <SelectValue placeholder="选择分类（可选）" />
                 </SelectTrigger>
                 <SelectContent className="rounded-xl border-gray-200 dark:bg-gray-800 dark:border-gray-700">
                   {customTags.map((tag) => (
@@ -468,7 +468,7 @@ export function AddTaskModal({
                   >
                     <Plus className="h-4 w-4" />
                   </motion.div>
-                  {showAddTag ? "Cancel" : "Create New Category"}
+                  {showAddTag ? "取消" : "创建新分类"}
                 </Button>
               </motion.div>
             </motion.div>
@@ -485,7 +485,7 @@ export function AddTaskModal({
                 >
                   <motion.div variants={itemVariants}>
                     <Input
-                      placeholder="Category name"
+                      placeholder="分类名称"
                       value={newTagName}
                       onChange={(e) => setNewTagName(e.target.value)}
                       onKeyDown={(e) => e.key === "Enter" && handleAddTag()}
@@ -495,7 +495,7 @@ export function AddTaskModal({
 
                   <motion.div variants={itemVariants} className="space-y-4">
                     <label className="text-sm font-extrabold text-gray-700 dark:text-gray-200 uppercase tracking-wider">
-                      Choose Color
+                      选择颜色
                     </label>
                     <motion.div
                       className="flex gap-3 flex-wrap justify-center"
@@ -548,7 +548,7 @@ export function AddTaskModal({
                         className="w-full rounded-xl font-extrabold py-3"
                         disabled={!newTagName.trim()}
                       >
-                        Create Category
+                        创建分类
                       </Button>
                     </motion.div>
                   </motion.div>
@@ -560,7 +560,7 @@ export function AddTaskModal({
             <motion.div variants={itemVariants} className="space-y-3">
               <label className="text-sm font-extrabold text-gray-700 dark:text-gray-200 uppercase tracking-wider flex items-center gap-2">
                 <Target className="h-4 w-4" />
-                Priority (Optional)
+                优先级（可选）
               </label>
               <PrioritySelector
                 value={selectedPriority}
@@ -575,7 +575,7 @@ export function AddTaskModal({
                 <div className="flex items-center justify-between">
                   <label className="text-sm font-extrabold text-gray-700 dark:text-gray-200 uppercase tracking-wider flex items-center gap-2">
                     <Target className="h-4 w-4" />
-                    Link to Weekly Goal (Optional)
+                    关联周目标（可选）
                   </label>
                   <Button
                     type="button"
@@ -639,7 +639,7 @@ export function AddTaskModal({
                 
                 <Select value={selectedWeeklyGoal} onValueChange={setSelectedWeeklyGoal}>
                   <SelectTrigger className="border-2 border-gray-300 focus:border-primary/70 font-extrabold dark:border-gray-600 dark:focus:border-primary/80 dark:bg-gray-800 dark:text-gray-100 rounded-xl py-3">
-                    <SelectValue placeholder="Choose a weekly goal (optional)" />
+                    <SelectValue placeholder="选择周目标（可选）" />
                   </SelectTrigger>
                   <SelectContent className="rounded-xl border-gray-200 dark:bg-gray-800 dark:border-gray-700">
                     {(() => {
@@ -723,7 +723,7 @@ export function AddTaskModal({
                     className="flex items-center gap-2"
                   >
                     <Plus className="h-5 w-5" />
-                    Add Task
+                    添加任务
                   </motion.div>
                 </Button>
               </motion.div>
@@ -736,7 +736,7 @@ export function AddTaskModal({
                   onClick={onClose}
                   className="px-6 py-6 rounded-xl font-bold border-2 border-gray-300 hover:border-primary/70 dark:border-gray-600 dark:hover:border-primary/80 dark:text-gray-100"
                 >
-                  Cancel
+                  取消
                 </Button>
               </motion.div>
             </motion.div>

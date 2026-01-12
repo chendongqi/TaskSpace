@@ -345,7 +345,7 @@ export function HabitTracker({
                 <RotateCcw className="h-5 w-5 text-primary" />
               </motion.div>
               <h2 className="text-2xl font-extrabold text-gray-900 dark:text-gray-100 tracking-wide">
-                Habit Tracker
+                习惯追踪
               </h2>
             </div>
             <Button
@@ -376,7 +376,7 @@ export function HabitTracker({
                 >
                   <motion.div variants={itemVariants}>
                     <Input
-                      placeholder="What habit do you want to build?"
+                      placeholder="你想培养什么习惯？"
                       value={newHabitName}
                       onChange={(e) => setNewHabitName(e.target.value)}
                       onKeyDown={(e) =>
@@ -391,7 +391,7 @@ export function HabitTracker({
                   <motion.div variants={itemVariants} className="space-y-3">
                     <Select value={selectedTag} onValueChange={setSelectedTag}>
                       <SelectTrigger className="border-2 border-gray-300 focus:border-primary/70 font-extrabold dark:border-gray-600 dark:focus:border-primary/80 dark:bg-gray-800 dark:text-gray-100 rounded-xl py-3">
-                        <SelectValue placeholder="Choose a category (optional)" />
+                        <SelectValue placeholder="选择分类（可选）" />
                       </SelectTrigger>
                       <SelectContent className="rounded-xl border-gray-200 dark:bg-gray-800 dark:border-gray-700">
                         {customTags
@@ -430,7 +430,7 @@ export function HabitTracker({
                         >
                           <Plus className="h-4 w-4" />
                         </motion.div>
-                        {showAddTag ? "Cancel" : "Create New Category"}
+                        {showAddTag ? "取消" : "创建新分类"}
                       </Button>
                     </motion.div>
                   </motion.div>
@@ -438,7 +438,7 @@ export function HabitTracker({
                   {/* Priority Selection */}
                   <motion.div variants={itemVariants} className="space-y-3">
                     <label className="text-sm font-extrabold text-gray-700 dark:text-gray-200 uppercase tracking-wider">
-                      Priority (Optional)
+                      优先级（可选）
                     </label>
                     <PrioritySelector
                       value={selectedPriority}
@@ -450,15 +450,15 @@ export function HabitTracker({
                   {/* Yearly Goal Selection */}
                   <motion.div variants={itemVariants} className="space-y-3">
                     <label className="text-sm font-extrabold text-gray-700 dark:text-gray-200 uppercase tracking-wider">
-                      Yearly Goal (Optional)
+                      年度目标（可选）
                     </label>
                     <Select value={selectedYearlyGoal} onValueChange={setSelectedYearlyGoal}>
                       <SelectTrigger className="border-2 border-gray-300 focus:border-primary/70 font-extrabold dark:border-gray-600 dark:focus:border-primary/80 dark:bg-gray-800 dark:text-gray-100 rounded-xl py-3">
-                        <SelectValue placeholder="Link to a yearly goal (optional)" />
+                        <SelectValue placeholder="关联年度目标（可选）" />
                       </SelectTrigger>
                       <SelectContent className="rounded-xl border-gray-200 dark:bg-gray-800 dark:border-gray-700">
                         <SelectItem value="none" className="rounded-lg dark:hover:bg-gray-700 dark:text-gray-100">
-                          <span className="font-extrabold">No yearly goal</span>
+                          <span className="font-extrabold">无年度目标</span>
                         </SelectItem>
                         {yearlyGoals
                           .filter((goal) => goal && goal.id && goal.id !== "")
@@ -486,7 +486,7 @@ export function HabitTracker({
                         className="space-y-4 p-4 border-2 border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700"
                       >
                         <Input
-                          placeholder="Category name"
+                          placeholder="分类名称"
                           value={newTagName}
                           onChange={(e) => setNewTagName(e.target.value)}
                           onKeyDown={(e) => e.key === "Enter" && addTag()}
@@ -495,7 +495,7 @@ export function HabitTracker({
 
                         <div className="space-y-3">
                           <label className="text-sm font-extrabold text-gray-700 dark:text-gray-200 uppercase tracking-wider">
-                            Choose Color
+                            选择颜色
                           </label>
                           <motion.div
                             className="flex gap-3 flex-wrap justify-center"
@@ -566,7 +566,7 @@ export function HabitTracker({
                         disabled={!newHabitName.trim()}
                       >
                         <Plus className="h-5 w-5 mr-2" />
-                        Add Habit
+                        添加习惯
                       </Button>
                     </motion.div>
                     <motion.div
@@ -587,7 +587,7 @@ export function HabitTracker({
                         }}
                         className="px-6 py-4 rounded-xl font-extrabold border-2 border-gray-300 hover:border-primary/70 dark:border-gray-600 dark:hover:border-primary/80 dark:text-gray-100"
                       >
-                        Cancel
+                        取消
                       </Button>
                     </motion.div>
                   </div>
@@ -607,7 +607,7 @@ export function HabitTracker({
                     className="w-full border-2 border-gray-300 font-extrabold hover:border-primary/70 dark:border-gray-600 dark:hover:border-primary/80 dark:text-gray-100 rounded-xl py-4"
                   >
                     <Plus className="h-5 w-5 mr-2" />
-                    Add New Habit
+                    添加新习惯
                   </Button>
                 </motion.div>
               )}
@@ -639,12 +639,12 @@ export function HabitTracker({
                         <div className="flex items-center justify-center gap-2">
                           <Calendar className="h-4 w-4 text-primary" />
                           <h3 className="font-extrabold text-gray-900 dark:text-gray-100">
-                            All Habits Overview
+                            所有习惯概览
                           </h3>
                         </div>
                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 font-medium">
-                          {totalCompletions} total completions • {habits.length}{" "}
-                          habits
+                          {totalCompletions} 总完成次数 • {habits.length}{" "}
+                          个习惯
                         </p>
                       </>
                     ) : (
@@ -740,7 +740,7 @@ export function HabitTracker({
                       <div className="flex flex-col gap-4 p-4 justify-center items-center bg-gray-50 dark:bg-gray-800/80 rounded-xl border-2 border-gray-200 dark:border-gray-700 h-[210px]">
                         <div className="flex flex-row-reverse items-center w-full relative">
                           <span className="text-sm font-extrabold text-gray-700 dark:text-gray-200 uppercase tracking-wider absolute left-1/2 transform -translate-x-1/2">
-                            Past 30 days
+                            过去30天
                           </span>
                           <span className="text-xs text-gray-500 dark:text-gray-400 font-extrabold h-5">
                             {Math.round(
@@ -781,7 +781,7 @@ export function HabitTracker({
                         </div>
 
                         <div className="text-xs text-gray-500 dark:text-gray-400 font-medium">
-                          {totalCompletions} total habit completions this month
+                          {totalCompletions} 本月总习惯完成次数
                         </div>
                       </div>
                     </motion.div>
@@ -800,7 +800,7 @@ export function HabitTracker({
                         <div className="flex flex-col gap-4 p-4 justify-center items-center bg-gray-50 dark:bg-gray-800/80 rounded-xl border-2 border-gray-200 dark:border-gray-700 h-[210px]">
                           <div className="flex flex-row-reverse items-center w-full relative">
                             <span className="text-sm font-extrabold text-gray-700 dark:text-gray-200 uppercase tracking-wider absolute left-1/2 transform -translate-x-1/2">
-                              Past 30 days
+                              过去30天
                             </span>
                             <motion.div
                               whileHover={{ scale: 1.05 }}
@@ -840,8 +840,8 @@ export function HabitTracker({
                           </div>
 
                           <div className="text-xs text-gray-500 dark:text-gray-400 font-medium">
-                            {currentHabit.completedDates.length} days completed
-                            this month
+                            {currentHabit.completedDates.length} 天完成
+                            本月
                           </div>
                         </div>
                       </motion.div>
@@ -863,9 +863,9 @@ export function HabitTracker({
                   className="p-4 bg-gray-50 dark:bg-gray-800/80 rounded-xl border-2 border-gray-200 dark:border-gray-700"
                 >
                   <RotateCcw className="h-12 w-12 mx-auto mb-4 text-gray-400 dark:text-gray-500" />
-                  <p className="font-extrabold text-lg">No habits yet</p>
+                  <p className="font-extrabold text-lg">还没有习惯</p>
                   <p className="text-sm mt-1">
-                    Add one to start tracking your progress!
+                    添加一个开始追踪你的进度！
                   </p>
                 </motion.div>
               </motion.div>
@@ -877,7 +877,7 @@ export function HabitTracker({
               className="pt-4 border-t-2 border-gray-200 dark:border-gray-700"
             >
               <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 font-medium">
-                <span>Less</span>
+                <span>更少</span>
                 <div className="flex gap-2">
                   <div className="w-4 h-4 rounded-md bg-primary/10"></div>
                   <div className="w-4 h-4 rounded-md bg-primary/30"></div>
@@ -886,12 +886,12 @@ export function HabitTracker({
                   <div className="w-4 h-4 rounded-md bg-primary/85"></div>
                   <div className="w-4 h-4 rounded-md bg-primary"></div>
                 </div>
-                <span>More</span>
+                <span>更多</span>
               </div>
               <div className="text-center text-xs text-gray-400 dark:text-gray-500 mt-2 font-medium">
                 {currentHabitIndex === -1
-                  ? "Daily habit completions (1-5+)"
-                  : "Individual habit completion"}
+                  ? "每日习惯完成次数 (1-5+)"
+                  : "单个习惯完成情况"}
               </div>
             </motion.div>
           </motion.div>

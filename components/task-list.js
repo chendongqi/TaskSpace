@@ -278,7 +278,7 @@ export function TaskList({
                 <ChevronDown className="h-4 w-4" />
               </motion.div>
               <Calendar className="h-4 w-4" />
-              {title || "BACKLOG"} ({sortedTasks.filter((t) => t.completed).length}/
+              {title || "待办"} ({sortedTasks.filter((t) => t.completed).length}/
               {sortedTasks.length})
             </motion.button>
 
@@ -333,7 +333,7 @@ export function TaskList({
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
               >
-                <p className="text-sm">No backlog tasks yet</p>
+                <p className="text-sm">还没有待办任务</p>
               </motion.div>
             )}
           </motion.div>
@@ -364,7 +364,7 @@ export function TaskList({
                 <ChevronDown className="h-4 w-4" />
               </motion.div>
               <RotateCcw className="h-4 w-4" />
-              Habits ({sortedHabitTasks.filter((t) => t.completed).length}/
+              习惯 ({sortedHabitTasks.filter((t) => t.completed).length}/
               {sortedHabitTasks.length})
             </motion.button>
 
@@ -441,7 +441,7 @@ export function TaskList({
                 <ChevronDown className="h-4 w-4" />
               </motion.div>
               <Calendar className="h-4 w-4" />
-              Tasks ({sortedRegularTasks.filter((t) => t.completed).length}/
+              今日任务 ({sortedRegularTasks.filter((t) => t.completed).length}/
               {sortedRegularTasks.length})
             </motion.button>
 

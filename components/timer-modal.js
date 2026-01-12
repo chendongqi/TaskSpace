@@ -709,7 +709,7 @@ export function TimerModal({
                 <Timer className="h-5 w-5 text-primary" />
               </motion.div>
               <h2 className="text-2xl font-extrabold text-gray-900 dark:text-gray-100 tracking-wide">
-                {isBreak ? "Break Time" : "Focus Timer"}
+                {isBreak ? "休息时间" : "专注计时器"}
               </h2>
             </div>
             <div className="flex items-center gap-2">
@@ -770,8 +770,8 @@ export function TimerModal({
               <motion.div variants={itemVariants} className="space-y-3">
                 <label className="text-sm font-extrabold text-gray-700 dark:text-gray-200 uppercase tracking-wider">
                   {!isRunning
-                    ? "Focus on task"
-                    : `Focusing on ${
+                    ? "专注任务"
+                    : `正在专注：${
                         incompleteItems.find((item) => item.id === selectedTask)
                           ?.title
                       }`}
@@ -784,7 +784,7 @@ export function TimerModal({
                       disabled={isRunning}
                     >
                       <SelectTrigger className="border-2 border-gray-300 focus:border-primary/70 font-extrabold dark:border-gray-600 dark:focus:border-primary/80 dark:bg-gray-800 dark:text-gray-100 rounded-xl py-3">
-                        <SelectValue placeholder="Select a task or habit" />
+                        <SelectValue placeholder="选择任务或习惯" />
                       </SelectTrigger>
                       <SelectContent className="rounded-xl border-gray-200 dark:bg-gray-800 dark:border-gray-700">
                         {incompleteItems.map((item) => (
@@ -818,10 +818,10 @@ export function TimerModal({
                         🎉
                       </motion.div>
                       <p className="font-extrabold text-lg text-gray-900 dark:text-gray-100">
-                        You are done for today!
+                        今天完成了！
                       </p>
                       <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                        Great job completing all your tasks and habits.
+                        太棒了！你完成了所有任务和习惯。
                       </p>
                     </motion.div>
                   ))}
@@ -841,7 +841,7 @@ export function TimerModal({
                         variant="default"
                       >
                         <CheckCircle className="h-5 w-5 mr-2" />
-                        Mark Complete
+                        标记完成
                       </Button>
                     </motion.div>
                   )}
@@ -887,7 +887,7 @@ export function TimerModal({
                               +{formatTime(overtimeSeconds)}
                             </motion.div>
                             <div className="text-lg text-red-400 uppercase tracking-wider font-bold">
-                              Overtime
+                              超时
                             </div>
                           </>
                         ) : (
@@ -953,10 +953,10 @@ export function TimerModal({
                         }`}
                       >
                         {timeLeft === 0
-                          ? "⏰ Overtime Mode"
+                          ? "⏰ 超时模式"
                           : isBreak
-                          ? "🧘 Break Time"
-                          : "🎯 Focus Time"}
+                          ? "🧘 休息时间"
+                          : "🎯 专注时间"}
                       </div>
                     </motion.div>
 
@@ -981,7 +981,7 @@ export function TimerModal({
                 {!isBreak && (
                   <motion.div variants={itemVariants} className="space-y-3">
                     <label className="text-sm font-extrabold text-gray-700 dark:text-gray-200 uppercase tracking-wider">
-                      Quick Presets
+                      快速预设
                     </label>
                     <div className="grid grid-cols-4 gap-2">
                       {presets.map((p) => (

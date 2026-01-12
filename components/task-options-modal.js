@@ -606,7 +606,7 @@ export function TaskOptionsModal({
                   >
                     <Plus className="h-4 w-4" />
                   </motion.div>
-                  {showAddTag ? "Cancel" : "Create New Category"}
+                  {showAddTag ? "取消" : "创建新分类"}
                 </Button>
               </motion.div>
             </motion.div>

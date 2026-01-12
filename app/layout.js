@@ -11,7 +11,7 @@ const nunito = Nunito({
 });
 
 export const metadata = {
-  title: "PrioSpace",
+  title: "Task Space",
   description: "Focus on what matters.",
 };
 

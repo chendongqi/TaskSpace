@@ -17,7 +17,6 @@ import { HabitTracker } from "@/components/habit-tracker";
 import { TimerModal } from "@/components/timer-modal";
 import { SettingsModal } from "@/components/settings-modal";
 import { IntroScreen } from "@/components/intro-screen";
-import { WebRTCShareModal } from "@/components/webrtc-share-modal";
 import { AnonymousDataMergeDialog } from "@/components/anonymous-data-merge-dialog";
 import { AnonymousWarningDialog } from "@/components/anonymous-warning-dialog";
 import { YearlyGoalsTracker } from "@/components/yearly-goals-tracker";
@@ -52,7 +51,6 @@ export default function Home() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showIntroScreen, setShowIntroScreen] = useState(true);
   const [parentTaskForSubtask, setParentTaskForSubtask] = useState(null);
-  const [showWebRTCShare, setShowWebRTCShare] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false); // 移动端更多菜单
   const [isDataLoaded, setIsDataLoaded] = useState(false); // 防止初始化时触发备份
   
@@ -501,8 +499,7 @@ export default function Home() {
         showTimer ||
         showSettings ||
         showTaskOptions ||
-        showAddSubtask ||
-        showWebRTCShare
+        showAddSubtask
       ) {
         return;
       }
@@ -560,7 +557,6 @@ export default function Home() {
     showSettings,
     showTaskOptions,
     showAddSubtask,
-    showWebRTCShare,
     showIntroScreen,
   ]);
 
@@ -1062,73 +1058,6 @@ export default function Home() {
       updateYearlyGoalsProgress();
     }
   }, [quarterlyGoals, isDataLoaded]);
-
-  /**
-   * 验证数据完整性并显示结果
-   */
-  const handleValidateData = () => {
-    const issues = validateDataIntegrity();
-    
-    if (issues.length === 0) {
-      toast.success('数据完整性检查通过', {
-        description: '未发现任何问题 ✓'
-      });
-    } else {
-      // 按严重程度分组
-      const errors = issues.filter(i => i.severity === 'error');
-      const warnings = issues.filter(i => i.severity === 'warning');
-      
-      let message = '';
-      if (errors.length > 0) {
-        message += `发现 ${errors.length} 个严重问题\n`;
-        errors.forEach(err => {
-          message += `• ${err.message}\n`;
-        });
-      }
-      if (warnings.length > 0) {
-        message += `发现 ${warnings.length} 个警告\n`;
-        warnings.forEach(warn => {
-          message += `• ${warn.message}\n`;
-        });
-      }
-      
-      // 如果有可修复的问题，提供修复选项
-      const fixableIssues = issues.filter(i => i.fix);
-      if (fixableIssues.length > 0) {
-        showConfirm(
-          '发现数据问题',
-          message + '\n是否立即修复？',
-          () => {
-            fixableIssues.forEach(issue => issue.fix());
-          }
-        );
-      } else {
-        toast.warning('发现数据问题', {
-          description: message
-        });
-      }
-    }
-  };
-
-  /**
-   * 处理数据去重（带确认）
-   */
-  const handleDeduplicateTasks = () => {
-    const duplicates = findDuplicateTasks();
-    
-    if (duplicates.length === 0) {
-      toast.info('数据清理', {
-        description: '没有发现重复任务'
-      });
-      return;
-    }
-    
-    showConfirm(
-      '清理重复任务',
-      `发现 ${duplicates.length} 个任务有重复副本。将保留最新的副本，删除旧的。是否继续？`,
-      deduplicateTasks
-    );
-  };
 
   const getDateString = (date) => {
     const year = date.getFullYear();
@@ -2434,7 +2363,7 @@ export default function Home() {
                       weeklyGoals={weeklyGoals}
                       yearlyGoals={yearlyGoals}
                       isBacklog={true}
-                      title="BACKLOG"
+                      title="待办"
                       noPaddingTop={true}
                     />
                   </div>
@@ -2451,7 +2380,7 @@ export default function Home() {
                   >
                     <div className="group-hover:scale-110 transition-transform flex flex-col items-center gap-0.5">
                       <Timer className="h-5 w-5" />
-                      <span className="text-xs">Timer</span>
+                      <span className="text-xs">番茄钟</span>
                     </div>
                   </Button>
 
@@ -2463,7 +2392,7 @@ export default function Home() {
                   >
                     <div className="group-hover:scale-110 transition-transform flex flex-col items-center gap-0.5">
                       <BarChart3 className="h-5 w-5" />
-                      <span className="text-xs">Habits</span>
+                      <span className="text-xs">习惯打卡</span>
                     </div>
                   </Button>
 
@@ -2483,7 +2412,7 @@ export default function Home() {
                   >
                     <div className="group-hover:scale-110 transition-transform flex flex-col items-center gap-0.5">
                       <Calendar className="h-5 w-5" />
-                      <span className="text-xs">Weekly</span>
+                      <span className="text-xs">周目标</span>
                     </div>
                   </Button>
 
@@ -2519,7 +2448,7 @@ export default function Home() {
                     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
                       <CheckCircle className="h-4 w-4 text-primary" />
                     </div>
-                    Prio Space
+                    Task Space
                   </div>
                   <button
                     onClick={() => setShowSettings(true)}
@@ -2575,7 +2504,7 @@ export default function Home() {
                     className="w-full h-12 bg-primary hover:bg-primary/90 group hover:scale-[1.02] transition-all duration-200 [&_svg]:size-5 rounded-2xl"
                   >
                     <Plus className="h-5 w-5 mr-2 group-hover:scale-110 transition-transform" />
-                    <span className="font-extrabold">Add Task</span>
+                    <span className="font-extrabold">添加任务</span>
                   </Button>
 
                   <Button
@@ -2585,7 +2514,7 @@ export default function Home() {
                     className="w-full h-12 font-bold hover:bg-accent/50 group hover:scale-[1.02] transition-all duration-200 rounded-2xl"
                   >
                     <Timer className="h-5 w-5 mr-2 group-hover:scale-110 transition-transform" />
-                    <span className="font-extrabold">Timer</span>
+                    <span className="font-extrabold">番茄钟</span>
                   </Button>
 
                   <Button
@@ -2595,7 +2524,7 @@ export default function Home() {
                     className="w-full h-12 font-bold hover:bg-accent/50 group hover:scale-[1.02] transition-all duration-200 rounded-2xl"
                   >
                     <BarChart3 className="h-5 w-5 mr-2 group-hover:scale-110 transition-transform" />
-                    <span className="font-extrabold">Habits</span>
+                    <span className="font-extrabold">习惯打卡</span>
                   </Button>
 
                   <Button
@@ -2605,7 +2534,7 @@ export default function Home() {
                     className="w-full h-12 font-bold hover:bg-accent/50 group hover:scale-[1.02] transition-all duration-200 rounded-2xl"
                   >
                     <Target className="h-5 w-5 mr-2 group-hover:scale-110 transition-transform" />
-                    <span className="font-extrabold">Goals</span>
+                    <span className="font-extrabold">年度目标</span>
                   </Button>
 
                   <Button
@@ -2615,7 +2544,7 @@ export default function Home() {
                     className="w-full h-12 font-bold hover:bg-accent/50 group hover:scale-[1.02] transition-all duration-200 rounded-2xl"
                   >
                     <TrendingUp className="h-5 w-5 mr-2 group-hover:scale-110 transition-transform" />
-                    <span className="font-extrabold">Quarterly</span>
+                    <span className="font-extrabold">季度目标</span>
                   </Button>
 
                   <Button
@@ -2625,20 +2554,20 @@ export default function Home() {
                     className="w-full h-12 font-bold hover:bg-accent/50 group hover:scale-[1.02] transition-all duration-200 rounded-2xl"
                   >
                     <Calendar className="h-5 w-5 mr-2 group-hover:scale-110 transition-transform" />
-                    <span className="font-extrabold">Weekly</span>
+                    <span className="font-extrabold">周目标</span>
                   </Button>
                 </div>
 
                 {/* Keyboard shortcuts hint */}
                 <div className="p-6 pt-0 text-[10px] text-muted-foreground font-extrabold space-y-1 opacity-70">
-                  <div>⌘/Ctrl + A → Add Task</div>
-                  <div>⌘/Ctrl + C → Timer</div>
-                  <div>⌘/Ctrl + H → Habits</div>
-                  <div>⌘/Ctrl + G → Goals</div>
-                  <div>⌘/Ctrl + Q → Quarterly</div>
-                  <div>⌘/Ctrl + W → Weekly</div>
-                  <div>⌘/Ctrl + X → Settings</div>
-                  <div>Esc → Close Modal</div>
+                  <div>⌘/Ctrl + A → 添加任务</div>
+                  <div>⌘/Ctrl + C → 番茄钟</div>
+                  <div>⌘/Ctrl + H → 习惯打卡</div>
+                  <div>⌘/Ctrl + G → 年度目标</div>
+                  <div>⌘/Ctrl + Q → 季度目标</div>
+                  <div>⌘/Ctrl + W → 周目标</div>
+                  <div>⌘/Ctrl + X → 设置</div>
+                  <div>Esc → 关闭弹窗</div>
                 </div>
               </motion.div>
             </div>
@@ -2677,7 +2606,7 @@ export default function Home() {
                       weeklyGoals={weeklyGoals}
                       yearlyGoals={yearlyGoals}
                       isBacklog={true}
-                      title="BACKLOG"
+                      title="待办"
                       noPaddingTop={true}
                     />
                   </div>
@@ -2697,24 +2626,9 @@ export default function Home() {
                 onThemeChange={setTheme}
                 onExportData={exportData}
                 onImportData={importData}
-                onOpenWebRTCShare={() => setShowWebRTCShare(true)}
-                onValidateData={handleValidateData}
-                onDeduplicateTasks={handleDeduplicateTasks}
                 user={user}
                 authenticated={authenticated}
                 onLogout={logout}
-              />
-            )}
-
-            {showWebRTCShare && (
-              <WebRTCShareModal
-                onClose={() => setShowWebRTCShare(false)}
-                dailyTasks={dailyTasks}
-                customTags={customTags}
-                habits={habits}
-                darkMode={darkMode}
-                theme={theme}
-                onImportData={importDataFromWebRTC}
               />
             )}
 

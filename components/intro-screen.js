@@ -175,7 +175,7 @@ export function IntroScreen({ onAnimationComplete }) {
             variants={logoVariants}
             className="text-5xl md:text-6xl font-extrabold text-gray-900 dark:text-gray-100 text-center tracking-tight"
           >
-            Prio Space
+            Task Space
           </motion.h1>
 
           <motion.div
