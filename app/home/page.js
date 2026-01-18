@@ -172,7 +172,7 @@ export default function LandingPage() {
               variants={fadeInUp}
               className="text-sm font-medium text-primary uppercase tracking-wider mb-8"
             >
-              Focus • Track • Achieve • Collaborate
+              专注 • 追踪 • 达成 • 协作
             </motion.div>
 
             <motion.div

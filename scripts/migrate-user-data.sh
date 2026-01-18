@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Priospace 用户数据迁移脚本
+# 飞鹰计划 用户数据迁移脚本
 # 将多个用户目录的数据合并到固定用户ID下
 
 set -e
@@ -10,7 +10,7 @@ PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 DATA_DIR="$PROJECT_DIR/data/backups"
 TARGET_USER="priospace_user"
 
-echo "🔄 Priospace 用户数据迁移工具"
+echo "🔄 飞鹰计划 用户数据迁移工具"
 echo "=================================="
 
 if [ ! -d "$DATA_DIR" ]; then

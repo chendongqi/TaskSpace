@@ -11,8 +11,8 @@ const nunito = Nunito({
 });
 
 export const metadata = {
-  title: "Task Space",
-  description: "Focus on what matters.",
+  title: "飞鹰计划",
+  description: "专注重要的事。",
 };
 
 export default function RootLayout({ children }) {

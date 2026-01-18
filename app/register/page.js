@@ -59,7 +59,7 @@ export default function RegisterPage() {
         });
       } else {
         toast.success("注册成功！", {
-          description: "欢迎使用 Task Space",
+          description: "欢迎使用飞鹰计划",
         });
         router.push("/");
       }

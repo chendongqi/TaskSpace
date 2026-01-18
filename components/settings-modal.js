@@ -573,10 +573,10 @@ export function SettingsModal({
             >
               <div className="text-center space-y-3">
                 <div className="text-lg font-extrabold text-primary">
-                  Task Space V2.0.0
+                  飞鹰计划 V2.0.0
                 </div>
                 <div className="text-sm font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
-                  Focus • Track • Achieve
+                  专注 • 追踪 • 达成
                 </div>
 
                 {/* vibecoded section */}

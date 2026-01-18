@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Priospace Data Backup Script
+# 飞鹰计划 Data Backup Script
 # This script helps backup and restore user data
 
 set -e  # Exit on any error
@@ -15,7 +15,7 @@ mkdir -p "$BACKUP_DIR"
 
 # Function to create backup
 backup() {
-    echo "Creating backup of Priospace data..."
+    echo "Creating backup of 飞鹰计划 data..."
     
     if [ ! -d "$DATA_DIR" ]; then
         echo "❌ Data directory not found: $DATA_DIR"
@@ -23,7 +23,7 @@ backup() {
     fi
     
     TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-    BACKUP_FILE="$BACKUP_DIR/priospace_backup_$TIMESTAMP.tar.gz"
+    BACKUP_FILE="$BACKUP_DIR/飞鹰计划_backup_$TIMESTAMP.tar.gz"
     
     echo "📦 Backing up data to: $BACKUP_FILE"
     tar -czf "$BACKUP_FILE" -C "$PROJECT_DIR" data/
@@ -78,7 +78,7 @@ list_backups() {
 
 # Function to show data status
 status() {
-    echo "📊 Priospace Data Status"
+    echo "📊 飞鹰计划 Data Status"
     echo "========================="
     echo "📁 Project Directory: $PROJECT_DIR"
     echo "💾 Data Directory: $DATA_DIR"
@@ -133,7 +133,7 @@ case "$1" in
         clean "$2"
         ;;
     *)
-        echo "🎯 Priospace Data Management Tool"
+        echo "🎯 飞鹰计划 Data Management Tool"
         echo ""
         echo "Usage: $0 {backup|restore|list|status|clean}"
         echo ""
@@ -146,7 +146,7 @@ case "$1" in
         echo ""
         echo "Examples:"
         echo "  $0 backup"
-        echo "  $0 restore backups/priospace_backup_20241228_143022.tar.gz"
+        echo "  $0 restore backups/飞鹰计划_backup_20241228_143022.tar.gz"
         echo "  $0 clean 7    # Delete backups older than 7 days"
         exit 1
         ;;
