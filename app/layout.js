@@ -11,7 +11,7 @@ const nunito = Nunito({
 });
 
 export const metadata = {
-  title: "飞鹰计划",
+  title: "A计划",
   description: "专注重要的事。",
 };
 

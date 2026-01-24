@@ -27,7 +27,7 @@ import "@/lib/debug"; // 导入调试工具
 
 export default function Home() {
   // 获取认证状态
-  const { user, authenticated, logout } = useAuth();
+  const { user, authenticated, logout, loading: authLoading } = useAuth();
   
   const [darkMode, setDarkMode] = useState(false);
   const [theme, setTheme] = useState("default");
@@ -53,6 +53,7 @@ export default function Home() {
   const [parentTaskForSubtask, setParentTaskForSubtask] = useState(null);
   const [showMobileMenu, setShowMobileMenu] = useState(false); // 移动端更多菜单
   const [isDataLoaded, setIsDataLoaded] = useState(false); // 防止初始化时触发备份
+  const [isSyncingData, setIsSyncingData] = useState(false); // 是否正在同步服务器数据
   
   // 匿名数据合并对话框状态
   const [showAnonymousMergeDialog, setShowAnonymousMergeDialog] = useState(false);
@@ -83,155 +84,192 @@ export default function Home() {
     setConfirmAction(null);
   };
 
+  // 数据处理函数（避免重复代码）
+  const processTasks = (savedDailyTasks) => {
+    const converted = {};
+    Object.keys(savedDailyTasks).forEach((dateKey) => {
+      converted[dateKey] = savedDailyTasks[dateKey].map((task) => {
+        const processedSubtasks = (task.subtasks || []).map((subtask) => ({
+          ...subtask,
+          createdAt: new Date(subtask.createdAt || task.createdAt),
+          focusTime: subtask.focusTime || 0,
+          timeSpent: subtask.timeSpent || 0,
+          completed: !!subtask.completed,
+          parentTaskId: task.id,
+          subtasks: [],
+        }));
+
+        return {
+          ...task,
+          createdAt: new Date(task.createdAt),
+          focusTime: task.focusTime || 0,
+          timeSpent: task.timeSpent || 0,
+          completed: !!task.completed,
+          subtasks: processedSubtasks,
+          subtasksExpanded: task.subtasksExpanded || false,
+        };
+      });
+    });
+    return converted;
+  };
+
+  const processBacklogTasks = (savedBacklog) => {
+    return savedBacklog.map((task) => {
+      const processedSubtasks = (task.subtasks || []).map((subtask) => ({
+        ...subtask,
+        createdAt: new Date(subtask.createdAt || task.createdAt),
+        focusTime: subtask.focusTime || 0,
+        timeSpent: subtask.timeSpent || 0,
+        completed: !!subtask.completed,
+        parentTaskId: task.id,
+        subtasks: [],
+      }));
+      
+      return {
+        ...task,
+        createdAt: new Date(task.createdAt),
+        focusTime: task.focusTime || 0,
+        timeSpent: task.timeSpent || 0,
+        completed: !!task.completed,
+        subtasks: processedSubtasks,
+        subtasksExpanded: task.subtasksExpanded || false,
+      };
+    });
+  };
+
+  const processYearlyGoals = (savedGoals) => {
+    return savedGoals.map((goal) => ({
+      ...goal,
+      createdAt: new Date(goal.createdAt),
+      progress: goal.progress || 0,
+      completed: !!goal.completed,
+      autoCalculated: goal.autoCalculated || false,
+    }));
+  };
+
+  const processQuarterlyGoals = (savedGoals) => {
+    return savedGoals.map((goal) => ({
+      ...goal,
+      createdAt: new Date(goal.createdAt),
+      progress: goal.progress || 0,
+      completed: !!goal.completed,
+      quarter: goal.quarter || 1,
+      weight: goal.weight || undefined,
+    }));
+  };
+
+  const processWeeklyGoals = (savedGoals) => {
+    return (savedGoals || []).map((goal) => ({
+      ...goal,
+      createdAt: new Date(goal.createdAt),
+      progress: goal.progress || 0,
+      completed: !!goal.completed,
+      quarter: goal.quarter || 1,
+      week: goal.week || 1,
+      weight: goal.weight || undefined,
+    }));
+  };
+
   // Load data from storage on mount
   useEffect(() => {
     const loadData = async () => {
       try {
-        // 设置用户 ID 提供者，让 storage 可以根据登录状态获取用户 ID
+        // 设置用户 ID 提供者
         dataStorage.setUserIdProvider(() => {
           return user?.id || null;
         });
-        
-        // ⭐ 确保存储系统已初始化，并等待数据恢复完成
-        // 注意：这里可能会返回 needsAnonymousDataMerge，需要处理
-        const restoredData = await dataStorage.initializeStorage();
-        
-        console.log('📥 Data restoration result:', restoredData);
-        
-        // ⭐ 如果检测到匿名数据需要合并，显示对话框并等待用户选择
-        if (restoredData && restoredData.needsAnonymousDataMerge) {
-          console.log('📋 Anonymous data detected on mount, showing merge dialog...');
-          setAnonymousDataToMerge(restoredData.anonymousData);
-          setShowAnonymousMergeDialog(true);
-          return; // 等待用户选择，不加载数据
-        }
-        
-        // 加载所有数据（包括恢复的数据）
-        const loadDataItem = (key, setter, processor = null) => {
-          let data = null;
-          
-          // 优先使用恢复的数据
-          if (restoredData && restoredData[key]) {
-            data = restoredData[key];
-            console.log(`📦 Using restored data for ${key}`);
-          } else {
-            // 否则从 localStorage 读取
-            data = dataStorage.getLocalData(key);
-          }
-          
-          if (data !== null && data !== undefined) {
-            if (processor) {
-              data = processor(data);
-            }
-            setter(data);
-          }
-        };
-        
-        // 加载各种数据
-        loadDataItem("darkMode", setDarkMode);
-        loadDataItem("theme", setTheme);
-        
-        loadDataItem("dailyTasks", setDailyTasks, (savedDailyTasks) => {
-          // Convert date strings back to Date objects and ensure all fields exist
-          const converted = {};
-          Object.keys(savedDailyTasks).forEach((dateKey) => {
-            converted[dateKey] = savedDailyTasks[dateKey].map((task) => {
-              // Ensure subtasks are properly structured
-              const processedSubtasks = (task.subtasks || []).map((subtask) => ({
-                ...subtask,
-                createdAt: new Date(subtask.createdAt || task.createdAt),
-                focusTime: subtask.focusTime || 0,
-                timeSpent: subtask.timeSpent || 0,
-                completed: !!subtask.completed,
-                parentTaskId: task.id,
-                subtasks: [], // Subtasks don't have their own subtasks
-              }));
 
-              return {
-                ...task,
-                createdAt: new Date(task.createdAt),
-                focusTime: task.focusTime || 0,
-                timeSpent: task.timeSpent || 0,
-                completed: !!task.completed,
-                subtasks: processedSubtasks,
-                subtasksExpanded: task.subtasksExpanded || false,
-              };
-            });
-          });
-          return converted;
-        });
+        // ⭐ 第一步：立即从 localStorage 读取并显示数据（同步，瞬间完成）
+        console.log('⚡ Loading local data immediately...');
+        const loadLocalData = () => {
+          const localDarkMode = dataStorage.getLocalData('darkMode');
+          const localTheme = dataStorage.getLocalData('theme');
+          const localDailyTasks = dataStorage.getLocalData('dailyTasks');
+          const localCustomTags = dataStorage.getLocalData('customTags');
+          const localHabits = dataStorage.getLocalData('habits');
+          const localBacklogTasks = dataStorage.getLocalData('backlogTasks');
+          const localYearlyGoals = dataStorage.getLocalData('yearlyGoals');
+          const localQuarterlyGoals = dataStorage.getLocalData('quarterlyGoals');
+          const localWeeklyGoals = dataStorage.getLocalData('weeklyGoals');
+
+          if (localDarkMode !== null && localDarkMode !== undefined) setDarkMode(localDarkMode);
+          if (localTheme) setTheme(localTheme);
+          if (localDailyTasks) setDailyTasks(processTasks(localDailyTasks));
+          if (localCustomTags) setCustomTags(localCustomTags);
+          if (localHabits) setHabits(localHabits);
+          if (localBacklogTasks) setBacklogTasks(processBacklogTasks(localBacklogTasks));
+          if (localYearlyGoals) setYearlyGoals(processYearlyGoals(localYearlyGoals));
+          if (localQuarterlyGoals) setQuarterlyGoals(processQuarterlyGoals(localQuarterlyGoals));
+          if (localWeeklyGoals) setWeeklyGoals(processWeeklyGoals(localWeeklyGoals));
+        };
+
+        // 立即加载本地数据
+        loadLocalData();
         
-        loadDataItem("customTags", setCustomTags);
-        loadDataItem("habits", setHabits);
-        
-        loadDataItem("backlogTasks", setBacklogTasks, (savedBacklog) => {
-          // Convert date strings back to Date objects
-          return savedBacklog.map((task) => {
-            const processedSubtasks = (task.subtasks || []).map((subtask) => ({
-              ...subtask,
-              createdAt: new Date(subtask.createdAt || task.createdAt),
-              focusTime: subtask.focusTime || 0,
-              timeSpent: subtask.timeSpent || 0,
-              completed: !!subtask.completed,
-              parentTaskId: task.id,
-              subtasks: [],
-            }));
-            
-            return {
-              ...task,
-              createdAt: new Date(task.createdAt),
-              focusTime: task.focusTime || 0,
-              timeSpent: task.timeSpent || 0,
-              completed: !!task.completed,
-              subtasks: processedSubtasks,
-              subtasksExpanded: task.subtasksExpanded || false,
-            };
-          });
-        });
-        
-        loadDataItem("yearlyGoals", setYearlyGoals, (savedGoals) => {
-          // Convert date strings back to Date objects
-          return savedGoals.map((goal) => ({
-            ...goal,
-            createdAt: new Date(goal.createdAt),
-            progress: goal.progress || 0,
-            completed: !!goal.completed,
-            autoCalculated: goal.autoCalculated || false,
-          }));
-        });
-        
-        loadDataItem("quarterlyGoals", setQuarterlyGoals, (savedGoals) => {
-          // Convert date strings back to Date objects
-          return savedGoals.map((goal) => ({
-            ...goal,
-            createdAt: new Date(goal.createdAt),
-            progress: goal.progress || 0,
-            completed: !!goal.completed,
-            quarter: goal.quarter || 1,
-            weight: goal.weight || undefined,
-          }));
-        });
-        
-        loadDataItem("weeklyGoals", setWeeklyGoals, (savedGoals) => {
-          // Convert date strings back to Date objects
-          return (savedGoals || []).map((goal) => ({
-            ...goal,
-            createdAt: new Date(goal.createdAt),
-            progress: goal.progress || 0,
-            completed: !!goal.completed,
-            quarter: goal.quarter || 1,
-            week: goal.week || 1,
-            weight: goal.weight || undefined,
-          }));
-        });
-        
-        // 数据加载完成，允许备份
+        // 标记数据已加载，允许用户操作
         setIsDataLoaded(true);
-        console.log('✅ All data loaded successfully');
+        console.log('✅ Local data loaded, UI ready');
+
+        // ⭐ 第二步：异步同步服务器数据（后台进行，不阻塞UI）
+        // 检查是否需要同步（用户已登录）
+        if (dataStorage.isAuthenticated()) {
+          setIsSyncingData(true);
+          console.log('🔄 Starting server data sync...');
+          
+          // 可选：显示同步提示（仅在控制台，不打扰用户）
+          // toast.info('正在同步服务器数据...', { duration: 2000 });
+          
+          try {
+            // 初始化存储并同步服务器数据
+            const restoredData = await dataStorage.initializeStorage();
+            
+            console.log('📥 Server sync result:', restoredData);
+            
+            // ⭐ 如果检测到匿名数据需要合并，显示对话框
+            if (restoredData && restoredData.needsAnonymousDataMerge) {
+              console.log('📋 Anonymous data detected, showing merge dialog...');
+              setAnonymousDataToMerge(restoredData.anonymousData);
+              setShowAnonymousMergeDialog(true);
+              setIsSyncingData(false);
+              return;
+            }
+            
+            // 如果有服务器数据更新，增量更新状态
+            if (restoredData) {
+              console.log('🔄 Updating UI with server data...');
+              
+              if (restoredData.darkMode !== undefined) setDarkMode(restoredData.darkMode);
+              if (restoredData.theme) setTheme(restoredData.theme);
+              if (restoredData.dailyTasks) setDailyTasks(processTasks(restoredData.dailyTasks));
+              if (restoredData.customTags) setCustomTags(restoredData.customTags);
+              if (restoredData.habits) setHabits(restoredData.habits);
+              if (restoredData.backlogTasks) setBacklogTasks(processBacklogTasks(restoredData.backlogTasks));
+              if (restoredData.yearlyGoals) setYearlyGoals(processYearlyGoals(restoredData.yearlyGoals));
+              if (restoredData.quarterlyGoals) setQuarterlyGoals(processQuarterlyGoals(restoredData.quarterlyGoals));
+              if (restoredData.weeklyGoals) setWeeklyGoals(processWeeklyGoals(restoredData.weeklyGoals));
+              
+              console.log('✅ Server data synced and UI updated');
+              // 可选：显示同步成功提示（仅在控制台，不打扰用户）
+              // toast.success('数据同步完成', { duration: 2000 });
+            } else {
+              console.log('✨ No server data updates needed');
+            }
+          } catch (syncError) {
+            console.warn('⚠️ Server sync failed, using local data:', syncError);
+            // 同步失败不影响使用，继续使用本地数据
+            // 可选：显示同步失败提示（仅在控制台，不打扰用户）
+            // toast.warning('服务器同步失败，使用本地数据', { duration: 3000 });
+          } finally {
+            setIsSyncingData(false);
+          }
+        } else {
+          console.log('📱 User not authenticated, skipping server sync');
+        }
       } catch (error) {
         console.error('❌ Data loading failed:', error);
         // 即使失败也要允许备份，防止应用卡住
         setIsDataLoaded(true);
+        setIsSyncingData(false);
       }
     };
     
@@ -240,6 +278,13 @@ export default function Home() {
 
   // 当用户登录/登出时更新 storage 的用户 ID 提供者并重新加载数据
   useEffect(() => {
+    // ⭐ 认证状态还在加载时，不要执行任何操作
+    // 否则会错误地将 _current_user_id 设为 'anonymous'
+    if (authLoading) {
+      console.log('⏳ Auth still loading, skipping user change handling...');
+      return;
+    }
+    
     const handleUserChange = async () => {
       dataStorage.setUserIdProvider(() => {
         return user?.id || null;
@@ -272,7 +317,7 @@ export default function Home() {
     };
     
     handleUserChange();
-  }, [user, authenticated]); // 监听 user 和 authenticated 的变化
+  }, [user, authenticated, authLoading]); // 监听 user、authenticated 和 authLoading 的变化
 
   // 重新加载所有数据的辅助函数
   const reloadAllData = async (restoredData) => {
@@ -304,85 +349,13 @@ export default function Home() {
     loadDataItem("darkMode", setDarkMode);
     loadDataItem("theme", setTheme);
     
-    loadDataItem("dailyTasks", setDailyTasks, (savedTasks) => {
-      const converted = {};
-      Object.keys(savedTasks).forEach((dateKey) => {
-        converted[dateKey] = savedTasks[dateKey].map((task) => {
-          const processedSubtasks = (task.subtasks || []).map((subtask) => ({
-            ...subtask,
-            createdAt: new Date(subtask.createdAt || task.createdAt),
-            focusTime: subtask.focusTime || 0,
-            timeSpent: subtask.timeSpent || 0,
-            completed: !!subtask.completed,
-            parentTaskId: task.id,
-            subtasks: [],
-          }));
-
-          return {
-            ...task,
-            createdAt: new Date(task.createdAt),
-            focusTime: task.focusTime || 0,
-            timeSpent: task.timeSpent || 0,
-            completed: !!task.completed,
-            subtasks: processedSubtasks,
-            subtasksExpanded: task.subtasksExpanded || false,
-          };
-        });
-      });
-      return converted;
-    });
-    
+    loadDataItem("dailyTasks", setDailyTasks, processTasks);
     loadDataItem("customTags", setCustomTags);
     loadDataItem("habits", setHabits);
-    
-    loadDataItem("backlogTasks", setBacklogTasks, (savedBacklog) => {
-      return savedBacklog.map((task) => {
-        const processedSubtasks = (task.subtasks || []).map((subtask) => ({
-          ...subtask,
-          createdAt: new Date(subtask.createdAt || task.createdAt),
-          focusTime: subtask.focusTime || 0,
-          timeSpent: subtask.timeSpent || 0,
-          completed: !!subtask.completed,
-          parentTaskId: task.id,
-          subtasks: [],
-        }));
-        
-        return {
-          ...task,
-          createdAt: new Date(task.createdAt),
-          focusTime: task.focusTime || 0,
-          timeSpent: task.timeSpent || 0,
-          completed: !!task.completed,
-          subtasks: processedSubtasks,
-          subtasksExpanded: task.subtasksExpanded || false,
-        };
-      });
-    });
-    
-    loadDataItem("yearlyGoals", setYearlyGoals, (savedGoals) => {
-      return savedGoals.map((goal) => ({
-        ...goal,
-        createdAt: new Date(goal.createdAt),
-      }));
-    });
-    
-    loadDataItem("quarterlyGoals", setQuarterlyGoals, (savedGoals) => {
-      return savedGoals.map((goal) => ({
-        ...goal,
-        createdAt: new Date(goal.createdAt),
-        startDate: new Date(goal.startDate),
-        endDate: new Date(goal.endDate),
-      }));
-    });
-    
-    loadDataItem("weeklyGoals", setWeeklyGoals, (savedGoals) => {
-      return savedGoals.map((goal) => ({
-        ...goal,
-        createdAt: new Date(goal.createdAt),
-        startDate: new Date(goal.startDate),
-        endDate: new Date(goal.endDate),
-      }));
-    });
+    loadDataItem("backlogTasks", setBacklogTasks, processBacklogTasks);
+    loadDataItem("yearlyGoals", setYearlyGoals, processYearlyGoals);
+    loadDataItem("quarterlyGoals", setQuarterlyGoals, processQuarterlyGoals);
+    loadDataItem("weeklyGoals", setWeeklyGoals, processWeeklyGoals);
     
     console.log('✅ Data reloaded');
   };
@@ -2136,7 +2109,7 @@ export default function Home() {
     const url = URL.createObjectURL(dataBlob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `飞鹰计划_backup-${
+    link.download = `A计划_backup-${
       new Date().toISOString().split("T")[0]
     }.json`;
     link.style.display = "none";
@@ -2424,7 +2397,7 @@ export default function Home() {
                   >
                     <div className="group-hover:scale-110 transition-transform flex flex-col items-center gap-0.5">
                       <Target className="h-5 w-5" />
-                      <span className="text-xs">More</span>
+                      <span className="text-xs">更多</span>
                     </div>
                   </Button>
                 </div>
@@ -2448,7 +2421,7 @@ export default function Home() {
                     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
                       <CheckCircle className="h-4 w-4 text-primary" />
                     </div>
-                    飞鹰计划
+                    A计划
                   </div>
                   <button
                     onClick={() => setShowSettings(true)}
