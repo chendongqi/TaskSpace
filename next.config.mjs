@@ -1,3 +1,9 @@
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const isProd = process.env.NODE_ENV === "production";
 const internalHost = process.env.TAURI_DEV_HOST || "localhost";
 
@@ -20,6 +26,24 @@ const nextConfig = {
   
   // Transpile local packages (for monorepo workspace packages)
   transpilePackages: ['@wonder-lab/auth-sdk'],
+  
+  // Webpack configuration to resolve local packages
+  webpack: (config, { isServer }) => {
+    // Resolve @wonder-lab/auth-sdk to the actual package path
+    const authSdkPath = path.resolve(__dirname, '../../packages/auth-sdk');
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      '@wonder-lab/auth-sdk': path.resolve(authSdkPath, 'src'),
+    };
+    
+    // 添加 auth-sdk 的 node_modules 到解析路径，以便找到其依赖（如 @supabase/supabase-js）
+    config.resolve.modules = [
+      ...(config.resolve.modules || []),
+      path.resolve(authSdkPath, 'node_modules'),
+    ];
+    
+    return config;
+  },
 };
 
 export default nextConfig;
