@@ -312,11 +312,34 @@ export default function Home() {
         // 没有匿名数据，直接重新加载数据
         await reloadAllData(initResult);
       } else {
-        // 用户未切换，只更新 user ID 标记
+        // ✅ 修复：用户未切换，但如果是已登录状态，需要同步服务器数据
         dataStorage.updateCurrentUserId();
+
+        if (authenticated && user) {
+          console.log('🔄 User authenticated, syncing server data...');
+          setIsSyncingData(true);
+
+          try {
+            // 强制重新初始化，同步服务器数据
+            const initResult = await dataStorage.initializeStorage({
+              forceReinit: true,
+              skipAnonymousCheck: true
+            });
+
+            // 如果有服务器数据更新，重新加载
+            if (initResult) {
+              console.log('📥 Server data synced, reloading...');
+              await reloadAllData(initResult);
+            }
+          } catch (error) {
+            console.warn('⚠️ Server sync failed:', error);
+          } finally {
+            setIsSyncingData(false);
+          }
+        }
       }
     };
-    
+
     handleUserChange();
   }, [user, authenticated, authLoading]); // 监听 user、authenticated 和 authLoading 的变化
 
