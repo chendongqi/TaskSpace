@@ -221,7 +221,8 @@ export default function Home() {
           
           try {
             // 初始化存储并同步服务器数据
-            const restoredData = await dataStorage.initializeStorage();
+            // ✅ 修复：强制重新初始化，确保刷新页面时也能同步服务器数据
+            const restoredData = await dataStorage.initializeStorage({ forceReinit: true });
             
             console.log('📥 Server sync result:', restoredData);
             
