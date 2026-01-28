@@ -119,16 +119,31 @@ A beautiful, modern productivity app that combines task management with Pomodoro
    
    The WebRTC signaling server will start on the default port. Make sure this is running before using collaboration features.
 
-4. **Run the development server**
+4. **Configure environment variables**
+   Create a `.env.local` file in the root directory with your Supabase configuration:
+   ```bash
+   # Create .env.local file
+   cat > .env.local << 'EOF'
+   NEXT_PUBLIC_SUPABASE_URL=http://localhost:3204
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key-here
+   EOF
+   ```
+   
+   **Note**: Get your `NEXT_PUBLIC_SUPABASE_ANON_KEY` from your Supabase service configuration (typically in `services/auth-service/.env`).
+
+5. **Run the development server**
    ```bash
    # Navigate back to root directory
    cd ..
-   npm run dev
+   # Use npx next dev instead of npm run dev to avoid Turbopack issues with TypeScript packages
+   npx next dev
    # or
    yarn dev
    ```
+   
+   **Important**: Use `npx next dev` instead of `npm run dev` if you encounter module resolution issues with `@wonder-lab/auth-sdk`. The default `npm run dev` uses Turbopack which may have compatibility issues with TypeScript source packages.
 
-5. **Open your browser**
+6. **Open your browser**
    Navigate to [http://localhost:3000](http://localhost:3000)
 
 ## 🏗️ Tech Stack
@@ -262,6 +277,36 @@ Tasks with priority are automatically sorted (P0 appears first), helping you foc
    - Support the developer with "Buy Me a Coffee"
 
 ## 🔧 Configuration
+
+### Environment Variables
+
+The app requires Supabase configuration for authentication features. Create a `.env.local` file in the root directory:
+
+```bash
+# .env.local
+NEXT_PUBLIC_SUPABASE_URL=http://localhost:3204
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key-here
+```
+
+**Configuration Details:**
+- `NEXT_PUBLIC_SUPABASE_URL`: The URL of your Supabase service (default: `http://localhost:3204` for local development)
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Your Supabase anonymous key for client-side authentication
+
+**Getting Your Supabase Keys:**
+- For local development, check `services/auth-service/.env` in the monorepo root
+- For production, configure your Supabase instance and use the production URL and keys
+
+**Note**: The `.env.local` file is gitignored and should not be committed to version control.
+
+### Development Server
+
+**Recommended**: Use `npx next dev` instead of `npm run dev` to avoid Turbopack compatibility issues with TypeScript source packages:
+
+```bash
+npx next dev
+```
+
+The default `npm run dev` command uses `--turbopack` flag which may have issues resolving TypeScript packages from `node_modules` (e.g., `@wonder-lab/auth-sdk`). Using `npx next dev` uses the standard Webpack bundler which handles TypeScript packages correctly.
 
 ### WebRTC Server Setup
 The WebRTC server handles signaling for peer connections:

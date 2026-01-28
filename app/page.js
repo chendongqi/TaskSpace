@@ -321,28 +321,42 @@ export default function Home() {
 
   // 重新加载所有数据的辅助函数
   const reloadAllData = async (restoredData) => {
+    // 获取默认值的辅助函数
+    const getDefaultValue = (key) => {
+      switch (key) {
+        case 'dailyTasks': return {};
+        case 'backlogTasks':
+        case 'customTags':
+        case 'habits':
+        case 'yearlyGoals':
+        case 'quarterlyGoals':
+        case 'weeklyGoals': return [];
+        case 'darkMode': return false;
+        case 'theme': return 'theme-modern';
+        default: return null;
+      }
+    };
+
     // 重新加载所有数据
     const loadDataItem = (key, setter, processor = null) => {
       let data = null;
-      
-      // 优先使用恢复的数据
-      if (restoredData && restoredData[key]) {
+
+      // ✅ 修复：使用 hasOwnProperty 检查 key 是否存在
+      if (restoredData && restoredData.hasOwnProperty(key)) {
         data = restoredData[key];
-        console.log(`📦 Using restored data for ${key}`);
+        console.log(`📦 Using restored data for ${key}`, data);
       } else {
         // 否则从 localStorage 读取
         data = dataStorage.getLocalData(key);
       }
-      
+
       // 应用处理器（如果提供）
       if (data && processor) {
         data = processor(data);
       }
-      
-      // 设置状态（如果数据存在）
-      if (data !== null && data !== undefined) {
-        setter(data);
-      }
+
+      // ✅ 修复：始终调用 setter，使用默认值
+      setter(data !== null && data !== undefined ? data : getDefaultValue(key));
     };
     
     // 重新加载所有数据
@@ -384,20 +398,34 @@ export default function Home() {
   const handleDiscardAnonymousData = async () => {
     console.log('🗑️  User chose to discard anonymous data');
     setShowAnonymousMergeDialog(false);
-    
-    // 使用 discardAnonymousData 选项重新初始化（强制重新初始化）
-    const restoredData = await dataStorage.initializeStorage({ 
-      forceReinit: true,
-      skipAnonymousCheck: true,
-      discardAnonymousData: true 
-    });
-    
-    // 重新加载所有数据
-    await reloadAllData(restoredData);
-    
-    toast.info('已清空本地数据', {
-      description: '已从云端恢复您的账号数据'
-    });
+
+    try {
+      // ✅ 新增：先清空所有状态
+      setDailyTasks({});
+      setBacklogTasks([]);
+      setCustomTags([]);
+      setHabits([]);
+      setYearlyGoals([]);
+      setQuarterlyGoals([]);
+      setWeeklyGoals([]);
+
+      // 使用 discardAnonymousData 选项重新初始化（强制重新初始化）
+      const restoredData = await dataStorage.initializeStorage({
+        forceReinit: true,
+        skipAnonymousCheck: true,
+        discardAnonymousData: true
+      });
+
+      // 重新加载所有数据
+      await reloadAllData(restoredData);
+
+      toast.success('已清空本地数据', {
+        description: '已从云端恢复您的账号数据'
+      });
+    } catch (error) {
+      console.error('❌ Failed to discard data:', error);
+      toast.error('操作失败，请刷新页面重试');
+    }
   };
 
   // 处理匿名使用风险提醒 - 用户点击"我知道了"
