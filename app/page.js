@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { useAuth } from "@wonder-lab/auth-sdk";
 import { DayNightCycle, AnimatedNumber } from "@/components/day-night-cycle";
@@ -28,7 +28,10 @@ import "@/lib/debug"; // 导入调试工具
 export default function Home() {
   // 获取认证状态
   const { user, authenticated, logout, loading: authLoading } = useAuth();
-  
+
+  // ✅ 修复问题4：跟踪是否已完成首次同步，避免重复同步导致导入数据被覆盖
+  const hasInitialSyncRef = useRef(false);
+
   const [darkMode, setDarkMode] = useState(false);
   const [theme, setTheme] = useState("default");
   const [dailyTasks, setDailyTasks] = useState({});
@@ -205,67 +208,14 @@ export default function Home() {
 
         // 立即加载本地数据
         loadLocalData();
-        
+
         // 标记数据已加载，允许用户操作
         setIsDataLoaded(true);
         console.log('✅ Local data loaded, UI ready');
 
-        // ⭐ 第二步：异步同步服务器数据（后台进行，不阻塞UI）
-        // 检查是否需要同步（用户已登录）
-        if (dataStorage.isAuthenticated()) {
-          setIsSyncingData(true);
-          console.log('🔄 Starting server data sync...');
-          
-          // 可选：显示同步提示（仅在控制台，不打扰用户）
-          // toast.info('正在同步服务器数据...', { duration: 2000 });
-          
-          try {
-            // 初始化存储并同步服务器数据
-            // ✅ 修复：强制重新初始化，确保刷新页面时也能同步服务器数据
-            const restoredData = await dataStorage.initializeStorage({ forceReinit: true });
-            
-            console.log('📥 Server sync result:', restoredData);
-            
-            // ⭐ 如果检测到匿名数据需要合并，显示对话框
-            if (restoredData && restoredData.needsAnonymousDataMerge) {
-              console.log('📋 Anonymous data detected, showing merge dialog...');
-              setAnonymousDataToMerge(restoredData.anonymousData);
-              setShowAnonymousMergeDialog(true);
-              setIsSyncingData(false);
-              return;
-            }
-            
-            // 如果有服务器数据更新，增量更新状态
-            if (restoredData) {
-              console.log('🔄 Updating UI with server data...');
-              
-              if (restoredData.darkMode !== undefined) setDarkMode(restoredData.darkMode);
-              if (restoredData.theme) setTheme(restoredData.theme);
-              if (restoredData.dailyTasks) setDailyTasks(processTasks(restoredData.dailyTasks));
-              if (restoredData.customTags) setCustomTags(restoredData.customTags);
-              if (restoredData.habits) setHabits(restoredData.habits);
-              if (restoredData.backlogTasks) setBacklogTasks(processBacklogTasks(restoredData.backlogTasks));
-              if (restoredData.yearlyGoals) setYearlyGoals(processYearlyGoals(restoredData.yearlyGoals));
-              if (restoredData.quarterlyGoals) setQuarterlyGoals(processQuarterlyGoals(restoredData.quarterlyGoals));
-              if (restoredData.weeklyGoals) setWeeklyGoals(processWeeklyGoals(restoredData.weeklyGoals));
-              
-              console.log('✅ Server data synced and UI updated');
-              // 可选：显示同步成功提示（仅在控制台，不打扰用户）
-              // toast.success('数据同步完成', { duration: 2000 });
-            } else {
-              console.log('✨ No server data updates needed');
-            }
-          } catch (syncError) {
-            console.warn('⚠️ Server sync failed, using local data:', syncError);
-            // 同步失败不影响使用，继续使用本地数据
-            // 可选：显示同步失败提示（仅在控制台，不打扰用户）
-            // toast.warning('服务器同步失败，使用本地数据', { duration: 3000 });
-          } finally {
-            setIsSyncingData(false);
-          }
-        } else {
-          console.log('📱 User not authenticated, skipping server sync');
-        }
+        // ⚠️ 修复：删除这里的服务器同步逻辑，避免与第二个 useEffect 冲突
+        // 服务器同步由第二个 useEffect 统一处理（监听 user, authenticated 变化）
+        console.log('📍 Server sync will be handled by user authentication useEffect');
       } catch (error) {
         console.error('❌ Data loading failed:', error);
         // 即使失败也要允许备份，防止应用卡住
@@ -292,13 +242,18 @@ export default function Home() {
       });
       
       // 检测用户切换
-      if (dataStorage.checkUserSwitch()) {
+      const userSwitched = dataStorage.checkUserSwitch();
+
+      if (userSwitched) {
         console.log('🔄 User switched, checking for anonymous data...');
-        
+
+        // ✅ 用户切换，重置同步标志
+        hasInitialSyncRef.current = false;
+
         // ⭐ 先尝试初始化，检查是否有匿名数据需要处理（强制重新初始化）
-        const initResult = await dataStorage.initializeStorage({ 
+        const initResult = await dataStorage.initializeStorage({
           forceReinit: true,  // ⭐ 强制重新初始化
-          skipAnonymousCheck: false 
+          skipAnonymousCheck: false
         });
         
         // 如果有匿名数据需要用户确认
@@ -312,11 +267,18 @@ export default function Home() {
         // 没有匿名数据，直接重新加载数据
         await reloadAllData(initResult);
       } else {
-        // ✅ 修复：用户未切换，但如果是已登录状态，需要同步服务器数据
+        // ✅ 修复：用户未切换，只在首次认证完成时同步一次
+        // ⚠️ 关键修复：只有当 user 存在时才更新 userId，避免在 user 加载过程中错误设置为 'anonymous'
+        if (!authenticated || !user) {
+          console.log('⏳ User or auth not ready, waiting...');
+          return;
+        }
+
         dataStorage.updateCurrentUserId();
 
-        if (authenticated && user) {
-          console.log('🔄 User authenticated, syncing server data...');
+        if (!hasInitialSyncRef.current) {
+          console.log('🔄 First-time sync: User authenticated, syncing server data...');
+          hasInitialSyncRef.current = true; // ✅ 标记已同步
           setIsSyncingData(true);
 
           try {
@@ -336,6 +298,8 @@ export default function Home() {
           } finally {
             setIsSyncingData(false);
           }
+        } else {
+          console.log('✅ Already synced, skipping duplicate sync');
         }
       }
     };
@@ -2180,9 +2144,12 @@ export default function Home() {
       const file = e.target.files?.[0];
       if (file) {
         const reader = new FileReader();
-        reader.onload = (e) => {
+        reader.onload = async (e) => {
           try {
             const data = JSON.parse(e.target?.result);
+
+            // ✅ 修复问题4：导入前禁用自动同步，防止数据被覆盖
+            setIsSyncingData(true);
             if (data.dailyTasks) {
               // Convert date strings back to Date objects and ensure backward compatibility
               const converted = {};
@@ -2206,9 +2173,16 @@ export default function Home() {
                 }));
               });
               setDailyTasks(converted);
+              dataStorage.setLocalData('dailyTasks', data.dailyTasks); // ✅ 持久化
             }
-            if (data.customTags) setCustomTags(data.customTags);
-            if (data.habits) setHabits(data.habits);
+            if (data.customTags) {
+              setCustomTags(data.customTags);
+              dataStorage.setLocalData('customTags', data.customTags); // ✅ 持久化
+            }
+            if (data.habits) {
+              setHabits(data.habits);
+              dataStorage.setLocalData('habits', data.habits); // ✅ 持久化
+            }
             if (data.backlogTasks) {
               // 导入 Backlog 任务
               const convertedBacklogTasks = data.backlogTasks.map((task) => ({
@@ -2230,6 +2204,7 @@ export default function Home() {
                 isBacklog: true, // 确保标记为 Backlog 任务
               }));
               setBacklogTasks(convertedBacklogTasks);
+              dataStorage.setLocalData('backlogTasks', data.backlogTasks); // ✅ 持久化
             }
             if (data.yearlyGoals) {
               // Convert date strings back to Date objects
@@ -2241,6 +2216,7 @@ export default function Home() {
                 autoCalculated: goal.autoCalculated || false,
               }));
               setYearlyGoals(convertedGoals);
+              dataStorage.setLocalData('yearlyGoals', data.yearlyGoals); // ✅ 持久化
             }
             if (data.quarterlyGoals) {
               // Convert date strings back to Date objects
@@ -2253,6 +2229,7 @@ export default function Home() {
                 weight: goal.weight || undefined,
               }));
               setQuarterlyGoals(convertedQuarterlyGoals);
+              dataStorage.setLocalData('quarterlyGoals', data.quarterlyGoals); // ✅ 持久化
             }
             if (data.weeklyGoals) {
               // Convert date strings back to Date objects
@@ -2266,14 +2243,30 @@ export default function Home() {
                 weight: goal.weight || undefined,
               }));
               setWeeklyGoals(convertedWeeklyGoals);
+              dataStorage.setLocalData('weeklyGoals', data.weeklyGoals); // ✅ 持久化
             }
-            if (typeof data.darkMode === "boolean") setDarkMode(data.darkMode);
-            if (data.theme) setTheme(data.theme);
-            toast.success("数据导入成功");
+            if (typeof data.darkMode === "boolean") {
+              setDarkMode(data.darkMode);
+              dataStorage.setLocalData('darkMode', data.darkMode); // ✅ 持久化
+            }
+            if (data.theme) {
+              setTheme(data.theme);
+              dataStorage.setLocalData('theme', data.theme); // ✅ 持久化
+            }
+
+            // ✅ 等待一下让备份完成（1秒防抖 + 网络延迟）
+            await new Promise(resolve => setTimeout(resolve, 1500));
+
+            setIsSyncingData(false);
+            toast.success("数据导入成功", {
+              description: "数据已保存到云端"
+            });
             setShowSettings(false); // Close settings after import
           } catch (error) {
+            console.error("导入数据时出错:", error);
+            setIsSyncingData(false);
             toast.error("导入数据时出错", {
-              description: "请检查文件格式",
+              description: error.message || "请检查文件格式"
             });
           }
         };
