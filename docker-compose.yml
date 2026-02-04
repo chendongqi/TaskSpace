@@ -12,7 +12,7 @@ services:
       - BACKUP_DIR=/app/data/backups
       - NEXT_PUBLIC_ENABLE_SERVER_BACKUP=true
       # Supabase 配置（从 .env 文件读取，如果未设置则使用默认值）
-      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL:-https://supabase-kong.wonlab.top}
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL:-https://kong-tencent.wonlab.top}
       - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY:-}
     volumes:
       # Data persistence using local directory (easy to access and backup)
