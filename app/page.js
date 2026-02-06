@@ -750,7 +750,7 @@ export default function Home() {
     setYearlyGoals((prevGoals) => {
       return prevGoals.map((goal) => {
         const calculatedProgress = calculateYearlyGoalProgress(goal.id);
-        
+
         if (calculatedProgress === null) {
           // No associated quarterly goals, keep manual mode
           return {
@@ -768,6 +768,13 @@ export default function Home() {
         }
       });
     });
+  };
+
+  // ✅ 年度目标删除函数（使用 immediateBackup）
+  const deleteYearlyGoal = (goalId) => {
+    const newYearlyGoals = yearlyGoals.filter((goal) => goal.id !== goalId);
+    setYearlyGoals(newYearlyGoals);
+    dataStorage.immediateBackup('yearlyGoals', newYearlyGoals);
   };
 
   // Quarterly goal management functions
@@ -810,9 +817,14 @@ export default function Home() {
   const deleteQuarterlyGoal = (goalId) => {
     const goal = quarterlyGoals.find((g) => g.id === goalId);
     const hadYearlyGoal = goal?.yearlyGoalId;
-    
-    setQuarterlyGoals((prevGoals) => prevGoals.filter((goal) => goal.id !== goalId));
-    
+
+    // ✅ 预计算新状态
+    const newQuarterlyGoals = quarterlyGoals.filter((goal) => goal.id !== goalId);
+    setQuarterlyGoals(newQuarterlyGoals);
+
+    // ✅ 删除操作使用立即备份
+    dataStorage.immediateBackup('quarterlyGoals', newQuarterlyGoals);
+
     // Update yearly goal progress if it was associated
     if (hadYearlyGoal) {
       setTimeout(() => updateYearlyGoalsProgress(), 0);
@@ -971,67 +983,69 @@ export default function Home() {
   };
 
   const deleteWeeklyGoal = (goalId) => {
-    setWeeklyGoals((prevGoals) => {
-      const goal = prevGoals.find((g) => g.id === goalId);
-      const hadQuarterlyGoal = goal?.quarterlyGoalId;
-      const updatedGoals = prevGoals.filter((goal) => goal.id !== goalId);
-      
-      // Update quarterly goal progress if it was associated
-      if (hadQuarterlyGoal) {
-        setTimeout(() => {
-          setQuarterlyGoals((prevQuarterlyGoals) => {
-            return prevQuarterlyGoals.map((qGoal) => {
-              if (qGoal.id !== hadQuarterlyGoal) return qGoal;
-              
-              const associatedWeeklyGoals = updatedGoals.filter(
-                (wg) => wg.quarterlyGoalId === qGoal.id
-              );
-              
-              if (associatedWeeklyGoals.length === 0) {
-                return { ...qGoal, autoCalculated: false };
-              }
-              
-              // Calculate progress
-              let calculatedProgress = 0;
-              
-              if (associatedWeeklyGoals.length === 1) {
-                calculatedProgress = associatedWeeklyGoals[0].progress || 0;
-              } else {
-                const totalWeight = associatedWeeklyGoals.reduce(
-                  (sum, wg) => sum + (wg.weight || 0),
-                  0
-                );
-                
-                if (totalWeight === 0) {
-                  calculatedProgress =
-                    associatedWeeklyGoals.reduce(
-                      (sum, wg) => sum + (wg.progress || 0),
-                      0
-                    ) / associatedWeeklyGoals.length;
-                } else {
-                  const weightedSum = associatedWeeklyGoals.reduce((sum, wg) => {
-                    const normalizedWeight = (wg.weight || 0) / totalWeight;
-                    return sum + (wg.progress || 0) * normalizedWeight;
-                  }, 0);
-                  calculatedProgress = Math.round(weightedSum * 100) / 100;
-                }
-              }
-              
-              return {
-                ...qGoal,
-                progress: calculatedProgress,
-                completed: calculatedProgress >= 100,
-                autoCalculated: true,
-              };
-            });
-          });
-          
-          updateYearlyGoalsProgress();
-        }, 0);
-      }
-      
-      return updatedGoals;
-    });
+    const goal = weeklyGoals.find((g) => g.id === goalId);
+    const hadQuarterlyGoal = goal?.quarterlyGoalId;
+
+    // ✅ 预计算新状态
+    const newWeeklyGoals = weeklyGoals.filter((g) => g.id !== goalId);
+    setWeeklyGoals(newWeeklyGoals);
+
+    // ✅ 删除操作使用立即备份
+    dataStorage.immediateBackup('weeklyGoals', newWeeklyGoals);
+
+    // Update quarterly goal progress if it was associated
+    if (hadQuarterlyGoal) {
+      // ✅ 预计算更新后的季度目标
+      const newQuarterlyGoals = quarterlyGoals.map((qGoal) => {
+        if (qGoal.id !== hadQuarterlyGoal) return qGoal;
+
+        const associatedWeeklyGoals = newWeeklyGoals.filter(
+          (wg) => wg.quarterlyGoalId === qGoal.id
+        );
+
+        if (associatedWeeklyGoals.length === 0) {
+          return { ...qGoal, autoCalculated: false };
+        }
+
+        // Calculate progress
+        let calculatedProgress = 0;
+
+        if (associatedWeeklyGoals.length === 1) {
+          calculatedProgress = associatedWeeklyGoals[0].progress || 0;
+        } else {
+          const totalWeight = associatedWeeklyGoals.reduce(
+            (sum, wg) => sum + (wg.weight || 0),
+            0
+          );
+
+          if (totalWeight === 0) {
+            calculatedProgress =
+              associatedWeeklyGoals.reduce(
+                (sum, wg) => sum + (wg.progress || 0),
+                0
+              ) / associatedWeeklyGoals.length;
+          } else {
+            const weightedSum = associatedWeeklyGoals.reduce((sum, wg) => {
+              const normalizedWeight = (wg.weight || 0) / totalWeight;
+              return sum + (wg.progress || 0) * normalizedWeight;
+            }, 0);
+            calculatedProgress = Math.round(weightedSum * 100) / 100;
+          }
+        }
+
+        return {
+          ...qGoal,
+          progress: calculatedProgress,
+          completed: calculatedProgress >= 100,
+          autoCalculated: true,
+        };
+      });
+
+      setQuarterlyGoals(newQuarterlyGoals);
+      dataStorage.immediateBackup('quarterlyGoals', newQuarterlyGoals);
+
+      setTimeout(() => updateYearlyGoalsProgress(), 0);
+    }
   };
 
   // Update quarterly goals progress when weekly goals change
@@ -1634,39 +1648,50 @@ export default function Home() {
       to: destination,
       resetProgress: options.resetProgress
     });
-    
+
+    // ✅ 修复：预先计算新状态，确保原子性更新和备份
+    let newDailyTasks = dailyTasks;
+    let newBacklogTasks = backlogTasks;
+
     // 5. 从原位置删除
     if (location.type === 'backlog') {
-      setBacklogTasks(prev => prev.filter(t => t.id !== taskId));
+      newBacklogTasks = backlogTasks.filter(t => t.id !== taskId);
     } else {
-      setDailyTasks(prev => {
-        const updated = { ...prev };
-        if (updated[location.dateString]) {
-          updated[location.dateString] = updated[location.dateString].filter(
-            t => t.id !== taskId
-          );
-          // 清理空日期条目
-          if (updated[location.dateString].length === 0) {
-            delete updated[location.dateString];
-          }
+      newDailyTasks = { ...dailyTasks };
+      if (newDailyTasks[location.dateString]) {
+        newDailyTasks[location.dateString] = newDailyTasks[location.dateString].filter(
+          t => t.id !== taskId
+        );
+        // 清理空日期条目
+        if (newDailyTasks[location.dateString].length === 0) {
+          delete newDailyTasks[location.dateString];
         }
-        return updated;
-      });
+      }
     }
-    
+
     // 6. 添加到新位置
     if (destination.type === 'backlog') {
-      setBacklogTasks(prev => [...prev, movedTask]);
+      newBacklogTasks = [...newBacklogTasks.filter(t => t.id !== taskId), movedTask];
       toast.success('已移动到 Backlog');
     } else {
       const targetDateString = getDateString(destination.date);
-      setDailyTasks(prev => ({
-        ...prev,
-        [targetDateString]: [...(prev[targetDateString] || []), movedTask],
-      }));
+      newDailyTasks = {
+        ...newDailyTasks,
+        [targetDateString]: [...(newDailyTasks[targetDateString] || []).filter(t => t.id !== taskId), movedTask],
+      };
       toast.success(`已移动到 ${new Date(destination.date).toLocaleDateString('zh-CN')}`);
     }
-    
+
+    // 7. 原子性更新状态
+    setDailyTasks(newDailyTasks);
+    setBacklogTasks(newBacklogTasks);
+
+    // 8. ✅ 立即备份（绕过防抖，避免竞态条件）
+    // 直接调用即可，因为传入的是预计算的新数据，不依赖 React 状态
+    console.log('⚡ Triggering immediate backup after moveTask');
+    dataStorage.immediateBackup('dailyTasks', newDailyTasks);
+    dataStorage.immediateBackup('backlogTasks', newBacklogTasks);
+
     return true;
   };
 
@@ -1685,6 +1710,10 @@ export default function Home() {
     
     let cleanedCount = 0;
     
+    // ✅ 修复：预计算最终状态，然后一次性更新并立即备份
+    let newDailyTasks = { ...dailyTasks };
+    let newBacklogTasks = [...backlogTasks];
+
     duplicates.forEach(({ taskId, locations }) => {
       // 找出最新的位置（按日期排序，Backlog 视为最新）
       const sortedLocations = locations.sort((a, b) => {
@@ -1692,35 +1721,39 @@ export default function Home() {
         if (b.type === 'backlog') return 1;
         return b.dateString.localeCompare(a.dateString);
       });
-      
+
       const keepLocation = sortedLocations[0];
       const removeLocations = sortedLocations.slice(1);
-      
+
       console.log(`🔧 Task ${taskId} (${locations[0].title}): 保留 ${keepLocation.type}${keepLocation.dateString || ''}, 删除 ${removeLocations.length} 个副本`);
-      
+
       // 删除旧副本
       removeLocations.forEach(loc => {
         if (loc.type === 'backlog') {
-          setBacklogTasks(prev => prev.filter(t => t.id !== taskId));
+          newBacklogTasks = newBacklogTasks.filter(t => t.id !== taskId);
         } else {
-          setDailyTasks(prev => {
-            const updated = { ...prev };
-            if (updated[loc.dateString]) {
-              updated[loc.dateString] = updated[loc.dateString].filter(
-                t => t.id !== taskId
-              );
-              // 清理空日期条目
-              if (updated[loc.dateString].length === 0) {
-                delete updated[loc.dateString];
-              }
+          if (newDailyTasks[loc.dateString]) {
+            newDailyTasks[loc.dateString] = newDailyTasks[loc.dateString].filter(
+              t => t.id !== taskId
+            );
+            // 清理空日期条目
+            if (newDailyTasks[loc.dateString].length === 0) {
+              delete newDailyTasks[loc.dateString];
             }
-            return updated;
-          });
+          }
         }
         cleanedCount++;
       });
     });
-    
+
+    // 一次性更新状态
+    setDailyTasks(newDailyTasks);
+    setBacklogTasks(newBacklogTasks);
+
+    // ✅ 立即备份，确保清理结果不会丢失
+    dataStorage.immediateBackup('dailyTasks', newDailyTasks);
+    dataStorage.immediateBackup('backlogTasks', newBacklogTasks);
+
     toast.success('数据清理完成', {
       description: `找到 ${duplicates.length} 个重复任务，删除了 ${cleanedCount} 个副本`
     });
@@ -1917,7 +1950,10 @@ export default function Home() {
   };
 
   const deleteBacklogTask = (taskId) => {
-    setBacklogTasks(backlogTasks.filter((task) => task.id !== taskId));
+    const newBacklogTasks = backlogTasks.filter((task) => task.id !== taskId);
+    setBacklogTasks(newBacklogTasks);
+    // ✅ 删除操作使用立即备份，避免刷新后数据恢复
+    dataStorage.immediateBackup('backlogTasks', newBacklogTasks);
   };
 
   const updateBacklogTask = (taskId, updates) => {
@@ -2052,10 +2088,15 @@ export default function Home() {
       const habitId = id.split("-")[1];
       const updatedHabits = habits.filter((habit) => habit.id !== habitId);
       setHabits(updatedHabits);
+      // ✅ 删除操作使用立即备份
+      dataStorage.immediateBackup('habits', updatedHabits);
     } else {
       // Regular task/subtask deletion
       const updatedTasks = removeTaskFromList(id, currentTasks);
-      setDailyTasks({ ...dailyTasks, [dateString]: updatedTasks });
+      const newDailyTasks = { ...dailyTasks, [dateString]: updatedTasks };
+      setDailyTasks(newDailyTasks);
+      // ✅ 删除操作使用立即备份
+      dataStorage.immediateBackup('dailyTasks', newDailyTasks);
     }
   };
 
@@ -2101,8 +2142,12 @@ export default function Home() {
     return newTag.id;
   };
 
-  const handleTaskClick = (task) => {
+  // ✅ 修复：记录任务来源，避免重复任务时删错位置
+  const [selectedTaskIsBacklog, setSelectedTaskIsBacklog] = useState(false);
+
+  const handleTaskClick = (task, isFromBacklog = false) => {
     setSelectedTask(task);
+    setSelectedTaskIsBacklog(isFromBacklog);  // 记录任务来源
     setShowTaskOptions(true);
   };
 
@@ -2376,7 +2421,7 @@ export default function Home() {
                       customTags={customTags}
                       onToggleTask={toggleBacklogTask}
                       onDeleteTask={deleteBacklogTask}
-                      onTaskClick={handleTaskClick}
+                      onTaskClick={(task) => handleTaskClick(task, true)}
                       onAddSubtask={handleAddSubtask}
                       weeklyGoals={weeklyGoals}
                       yearlyGoals={yearlyGoals}
@@ -2619,7 +2664,7 @@ export default function Home() {
                       customTags={customTags}
                       onToggleTask={toggleBacklogTask}
                       onDeleteTask={deleteBacklogTask}
-                      onTaskClick={handleTaskClick}
+                      onTaskClick={(task) => handleTaskClick(task, true)}
                       onAddSubtask={handleAddSubtask}
                       weeklyGoals={weeklyGoals}
                       yearlyGoals={yearlyGoals}
@@ -2684,11 +2729,12 @@ export default function Home() {
                 onClose={() => {
                   setShowTaskOptions(false);
                   setSelectedTask(null);
+                  setSelectedTaskIsBacklog(false);  // 重置来源标记
                 }}
-                onUpdateTask={selectedTask && backlogTasks.find(t => t.id === selectedTask.id) ? updateBacklogTask : updateTask}
-                onDeleteTask={selectedTask && backlogTasks.find(t => t.id === selectedTask.id) ? deleteBacklogTask : deleteTask}
+                onUpdateTask={selectedTaskIsBacklog ? updateBacklogTask : updateTask}
+                onDeleteTask={selectedTaskIsBacklog ? deleteBacklogTask : deleteTask}
                 onAddCustomTag={addCustomTag}
-                onToggleTask={selectedTask && backlogTasks.find(t => t.id === selectedTask.id) ? toggleBacklogTask : toggleTask}
+                onToggleTask={selectedTaskIsBacklog ? toggleBacklogTask : toggleTask}
                 selectedDate={selectedDate}
                 onTransferTask={transferTaskToCurrentDay}
                 currentActualDate={new Date()}
@@ -2698,7 +2744,7 @@ export default function Home() {
                 yearlyGoals={yearlyGoals}
                 onMoveToBacklog={moveDayTaskToBacklog}
                 onMoveToDay={moveBacklogTaskToDay}
-                isBacklogTask={selectedTask && !!backlogTasks.find(t => t.id === selectedTask.id)}
+                isBacklogTask={selectedTaskIsBacklog}
               />
             )}
 
@@ -2727,6 +2773,7 @@ export default function Home() {
                   setShowQuarterlyGoals(true);
                   // TODO: Filter quarterly goals by yearlyGoalId when viewing
                 }}
+                onDeleteYearlyGoal={deleteYearlyGoal}
               />
             )}
 
@@ -2745,6 +2792,7 @@ export default function Home() {
                   setShowWeeklyGoals(true);
                   // The WeeklyGoalsTracker will handle filtering based on the current context
                 }}
+                onDeleteQuarterlyGoal={deleteQuarterlyGoal}
               />
             )}
 

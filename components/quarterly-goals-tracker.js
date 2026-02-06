@@ -59,6 +59,7 @@ export function QuarterlyGoalsTracker({
   onAddCustomTag,
   onYearlyGoalUpdate,
   onOpenWeeklyGoals,
+  onDeleteQuarterlyGoal,
 }) {
   const currentDate = new Date();
   const [currentYear, setCurrentYear] = useState(currentDate.getFullYear());
@@ -243,13 +244,13 @@ export function QuarterlyGoalsTracker({
     const message = hasYearlyGoal
       ? "删除后，关联的年度目标进度将重新计算。"
       : "此操作无法撤销。";
-    
+
     showConfirm(
       "确定要删除这个季度目标吗？",
       message,
       () => {
-        const updatedGoals = quarterlyGoals.filter((goal) => goal.id !== goalId);
-        onUpdateGoals(updatedGoals);
+        // ✅ 使用传入的删除函数，确保 immediateBackup 被调用
+        onDeleteQuarterlyGoal(goalId);
         toast.success("季度目标已删除", {
           description: hasYearlyGoal ? "年度目标进度已更新" : undefined,
         });

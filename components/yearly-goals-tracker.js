@@ -51,6 +51,7 @@ export function YearlyGoalsTracker({
   onAddCustomTag,
   onYearlyGoalUpdate,
   onOpenQuarterlyGoals,
+  onDeleteYearlyGoal,
 }) {
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   const [showAddForm, setShowAddForm] = useState(false);
@@ -183,8 +184,8 @@ export function YearlyGoalsTracker({
       "确定要删除这个年度目标吗？",
       "此操作无法撤销。",
       () => {
-        const updatedGoals = yearlyGoals.filter((goal) => goal.id !== goalId);
-        onUpdateGoals(updatedGoals);
+        // ✅ 使用传入的删除函数，确保 immediateBackup 被调用
+        onDeleteYearlyGoal(goalId);
         toast.success("年度目标已删除");
       }
     );
