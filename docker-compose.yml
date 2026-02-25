@@ -4,7 +4,7 @@ services:
       context: ../..  # 使用 monorepo 根目录作为构建上下文（为了访问 packages/auth-sdk）
       dockerfile: apps/taskspace/Dockerfile  # 指定 Dockerfile 位置
     ports:
-      - "11010:3000"
+      - "127.0.0.1:11010:3000"
     env_file:
       - .env.local  # 从 .env.local 文件读取环境变量
     environment:
