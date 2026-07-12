@@ -175,7 +175,7 @@ export function IntroScreen({ onAnimationComplete }) {
             variants={logoVariants}
             className="text-5xl md:text-6xl font-extrabold text-gray-900 dark:text-gray-100 text-center tracking-tight"
           >
-            飞鹰计划
+            A计划
           </motion.h1>
 
           <motion.div

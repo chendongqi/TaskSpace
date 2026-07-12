@@ -1,0 +1,15 @@
+# Taskspace - 生产环境优化配置
+# 针对 2G/4G 内存云服务器优化
+# 使用方法: docker-compose -f docker-compose.yml -f docker-compose.production.yml up -d
+
+services:
+  priospace:
+    deploy:
+      resources:
+        limits:
+          memory: 256M      # 限制最大内存 256MB
+        reservations:
+          memory: 128M      # 保留内存 128MB
+    environment:
+      # Node.js 内存优化
+      - NODE_OPTIONS=--max-old-space-size=200  # 限制 Node.js 堆内存为 200MB

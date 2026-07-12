@@ -11,7 +11,7 @@ const nunito = Nunito({
 });
 
 export const metadata = {
-  title: "飞鹰计划",
+  title: "A计划",
   description: "专注重要的事。",
 };
 
@@ -26,6 +26,7 @@ export default function RootLayout({ children }) {
           config={{
             supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || 'http://localhost:3204',
             supabaseAnonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
+            appKey: process.env.NEXT_PUBLIC_APP_KEY,
           }}
         >
           {children}

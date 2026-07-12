@@ -1,6 +1,6 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "飞鹰计划",
+  "productName": "A计划",
   "version": "2.0.0",
   "identifier": "com.wonderlab.flyingeagle",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "飞鹰计划",
+        "title": "A计划",
         "width": 490,
         "height": 900,
         "resizable": true,
