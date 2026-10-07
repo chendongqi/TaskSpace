@@ -8,7 +8,7 @@ import { DayNightCycle, AnimatedNumber } from "@/components/day-night-cycle";
 import { AnimatedYear } from "@/components/animated-year";
 import { WeeklyCalendar } from "@/components/weekly-calender";
 import { TaskList } from "@/components/task-list";
-import { Timer, Plus, BarChart3, Settings, CheckCircle, Target, TrendingUp, Calendar, AlertCircle } from "lucide-react";
+import { Timer, Plus, BarChart3, Settings, CheckCircle, Target, TrendingUp, Calendar, AlertCircle, GitBranch } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AddTaskModal } from "@/components/add-task-modal";
 import { TaskOptionsModal } from "@/components/task-options-modal";
@@ -22,6 +22,7 @@ import { AnonymousWarningDialog } from "@/components/anonymous-warning-dialog";
 import { YearlyGoalsTracker } from "@/components/yearly-goals-tracker";
 import { QuarterlyGoalsTracker } from "@/components/quarterly-goals-tracker";
 import { WeeklyGoalsTracker } from "@/components/weekly-goals-tracker";
+import { TechTopicTree } from "@/components/tech-topic-tree";
 import { dataStorage } from "@/lib/storage";
 import "@/lib/debug"; // 导入调试工具
 
@@ -46,6 +47,7 @@ export default function Home() {
   const [showYearlyGoals, setShowYearlyGoals] = useState(false);
   const [showQuarterlyGoals, setShowQuarterlyGoals] = useState(false);
   const [showWeeklyGoals, setShowWeeklyGoals] = useState(false);
+  const [showTopicTree, setShowTopicTree] = useState(false);
   const [showAddTask, setShowAddTask] = useState(false);
   const [showTaskOptions, setShowTaskOptions] = useState(false);
   const [showAddSubtask, setShowAddSubtask] = useState(false);
@@ -472,6 +474,7 @@ export default function Home() {
         setShowYearlyGoals(false);
         setShowQuarterlyGoals(false);
         setShowWeeklyGoals(false);
+        setShowTopicTree(false);
         setShowTimer(false);
         setShowSettings(false);
         setShowTaskOptions(false);
@@ -485,6 +488,7 @@ export default function Home() {
         showYearlyGoals ||
         showQuarterlyGoals ||
         showWeeklyGoals ||
+        showTopicTree ||
         showTimer ||
         showSettings ||
         showTaskOptions ||
@@ -542,6 +546,7 @@ export default function Home() {
     showYearlyGoals,
     showQuarterlyGoals,
     showWeeklyGoals,
+    showTopicTree,
     showTimer,
     showSettings,
     showTaskOptions,
@@ -2619,6 +2624,16 @@ export default function Home() {
                     <Calendar className="h-5 w-5 mr-2 group-hover:scale-110 transition-transform" />
                     <span className="font-extrabold">周目标</span>
                   </Button>
+
+                  <Button
+                    onClick={() => setShowTopicTree(true)}
+                    variant="outline"
+                    size="lg"
+                    className="w-full h-12 font-bold hover:bg-accent/50 group hover:scale-[1.02] transition-all duration-200 rounded-2xl"
+                  >
+                    <GitBranch className="h-5 w-5 mr-2 group-hover:scale-110 transition-transform" />
+                    <span className="font-extrabold">课题拆解树</span>
+                  </Button>
                 </div>
 
                 {/* Keyboard shortcuts hint */}
@@ -2810,6 +2825,10 @@ export default function Home() {
               />
             )}
 
+            {showTopicTree && (
+              <TechTopicTree onClose={() => setShowTopicTree(false)} />
+            )}
+
             {showTimer && (
               <TimerModal
                 tasks={flatTaskList} // Use flattened list for timer
@@ -2878,6 +2897,25 @@ export default function Home() {
                         <div className="flex-1 text-left">
                           <div className="font-extrabold text-lg text-gray-900 dark:text-gray-100">Quarterly Goals</div>
                           <div className="text-sm text-gray-500 dark:text-gray-400">季度目标管理</div>
+                        </div>
+                      </motion.button>
+
+                      {/* Topic Tree */}
+                      <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => {
+                          setShowTopicTree(true);
+                          setShowMobileMenu(false);
+                        }}
+                        className="w-full flex items-center gap-4 p-4 rounded-xl hover:bg-accent/50 transition-colors"
+                      >
+                        <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                          <GitBranch className="h-6 w-6 text-primary" />
+                        </div>
+                        <div className="flex-1 text-left">
+                          <div className="font-extrabold text-lg text-gray-900 dark:text-gray-100">Topic Tree</div>
+                          <div className="text-sm text-gray-500 dark:text-gray-400">技术课题拆解树</div>
                         </div>
                       </motion.button>
 
