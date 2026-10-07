@@ -3,7 +3,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
-import { useAuth } from "@wonder-lab/auth-sdk";
+import { useAuth, useSupabaseClient } from "@wonder-lab/auth-sdk";
 import { DayNightCycle, AnimatedNumber } from "@/components/day-night-cycle";
 import { AnimatedYear } from "@/components/animated-year";
 import { WeeklyCalendar } from "@/components/weekly-calender";
@@ -17,20 +17,29 @@ import { HabitTracker } from "@/components/habit-tracker";
 import { TimerModal } from "@/components/timer-modal";
 import { SettingsModal } from "@/components/settings-modal";
 import { IntroScreen } from "@/components/intro-screen";
-import { AnonymousDataMergeDialog } from "@/components/anonymous-data-merge-dialog";
 import { AnonymousWarningDialog } from "@/components/anonymous-warning-dialog";
 import { YearlyGoalsTracker } from "@/components/yearly-goals-tracker";
 import { QuarterlyGoalsTracker } from "@/components/quarterly-goals-tracker";
 import { WeeklyGoalsTracker } from "@/components/weekly-goals-tracker";
 import { dataStorage } from "@/lib/storage";
+import {
+  tagRowToLocal,
+  goalRowToLocal,
+  applyArrayRows as applyArrayRowsLocal,
+  applyHabitRows as applyHabitRowsLocal,
+  applyHabitCompletionRows as applyHabitCompletionRowsLocal,
+  applyTaskRows as applyTaskRowsLocal,
+  applySettingsRow as applySettingsRowLocal,
+} from "@/lib/supabase-sync";
 import "@/lib/debug"; // 导入调试工具
 
 export default function Home() {
   // 获取认证状态
   const { user, authenticated, logout, loading: authLoading } = useAuth();
 
-  // ✅ 修复问题4：跟踪是否已完成首次同步，避免重复同步导致导入数据被覆盖
-  const hasInitialSyncRef = useRef(false);
+  // 与认证共享的 Supabase client（必须通过此 hook 获取，不能自行 createClient()，
+  // 否则会产生第二个 GoTrueClient 实例，导致 localStorage session token 冲突）
+  const supabaseClient = useSupabaseClient();
 
   const [darkMode, setDarkMode] = useState(false);
   const [theme, setTheme] = useState("default");
@@ -58,10 +67,6 @@ export default function Home() {
   const [isDataLoaded, setIsDataLoaded] = useState(false); // 防止初始化时触发备份
   const [isSyncingData, setIsSyncingData] = useState(false); // 是否正在同步服务器数据
   
-  // 匿名数据合并对话框状态
-  const [showAnonymousMergeDialog, setShowAnonymousMergeDialog] = useState(false);
-  const [anonymousDataToMerge, setAnonymousDataToMerge] = useState(null);
-  
   // 匿名使用风险提醒对话框状态
   const [showAnonymousWarning, setShowAnonymousWarning] = useState(false);
   
@@ -70,6 +75,17 @@ export default function Home() {
   const [confirmAction, setConfirmAction] = useState(null);
   const [confirmMessage, setConfirmMessage] = useState("");
   const [confirmTitle, setConfirmTitle] = useState("");
+
+  // 保存 dailyTasks/backlogTasks 的最新引用，供 pull 合并逻辑读取（避免闭包里拿到过期状态，
+  // 又不想把 pull 逻辑写成嵌套 setState 的形式）
+  const dailyTasksRef = useRef(dailyTasks);
+  const backlogTasksRef = useRef(backlogTasks);
+  useEffect(() => {
+    dailyTasksRef.current = dailyTasks;
+  }, [dailyTasks]);
+  useEffect(() => {
+    backlogTasksRef.current = backlogTasks;
+  }, [backlogTasks]);
 
   // 通用确认对话框
   const showConfirm = (title, message, onConfirm) => {
@@ -227,7 +243,123 @@ export default function Home() {
     loadData();
   }, []);
 
-  // 当用户登录/登出时更新 storage 的用户 ID 提供者并重新加载数据
+  // ============================================================
+  // Supabase 增量拉取（pull）逻辑
+  // ============================================================
+  // 新模型下不再有"本地 vs 服务器谁更新"的猜测式合并：
+  // 每张逻辑表维护一个 last_pulled_at 水位线，每次 pull 只拉取
+  // updated_at > last_pulled_at 的行（包含墓碑行），用服务器返回的
+  // 最大 updated_at 作为新的水位线（而不是用客户端 Date.now()，避免时钟漂移）。
+  // 拉取结果通过 withSyncSuppressed 写回 localStorage/React state，
+  // 避免被 setLocalData 的 diff 逻辑当成"新的本地变更"又推回写队列。
+  const PULL_TABLES = [
+    "customTags",
+    "yearlyGoals",
+    "quarterlyGoals",
+    "weeklyGoals",
+    "habits",
+    "habitCompletions",
+    "dailyTasks",
+    "backlogTasks",
+    "settings",
+  ];
+
+  const pullAllChanges = async () => {
+    for (const table of PULL_TABLES) {
+      try {
+        const lastPulledAt = dataStorage.getLastPulledAt(table);
+        const { rows, maxUpdatedAt } = await dataStorage.pullChanges(table, lastPulledAt);
+
+        if (rows.length === 0) {
+          continue;
+        }
+
+        await dataStorage.withSyncSuppressed(async () => {
+          switch (table) {
+            case "customTags": {
+              setCustomTags((prev) => {
+                const next = applyArrayRowsLocal(prev, rows, tagRowToLocal);
+                dataStorage.setLocalData("customTags", next);
+                return next;
+              });
+              break;
+            }
+            case "yearlyGoals": {
+              setYearlyGoals((prev) => {
+                const next = applyArrayRowsLocal(prev, rows, goalRowToLocal);
+                dataStorage.setLocalData("yearlyGoals", next);
+                return next;
+              });
+              break;
+            }
+            case "quarterlyGoals": {
+              setQuarterlyGoals((prev) => {
+                const next = applyArrayRowsLocal(prev, rows, goalRowToLocal);
+                dataStorage.setLocalData("quarterlyGoals", next);
+                return next;
+              });
+              break;
+            }
+            case "weeklyGoals": {
+              setWeeklyGoals((prev) => {
+                const next = applyArrayRowsLocal(prev, rows, goalRowToLocal);
+                dataStorage.setLocalData("weeklyGoals", next);
+                return next;
+              });
+              break;
+            }
+            case "habits": {
+              setHabits((prev) => {
+                const next = applyHabitRowsLocal(prev, rows);
+                dataStorage.setLocalData("habits", next);
+                return next;
+              });
+              break;
+            }
+            case "habitCompletions": {
+              setHabits((prev) => {
+                const next = applyHabitCompletionRowsLocal(prev, rows);
+                dataStorage.setLocalData("habits", next);
+                return next;
+              });
+              break;
+            }
+            case "dailyTasks":
+            case "backlogTasks": {
+              const { dailyTasks: newDaily, backlogTasks: newBacklog } =
+                applyTaskRowsLocal(dailyTasksRef.current, backlogTasksRef.current, rows);
+              setDailyTasks(newDaily);
+              setBacklogTasks(newBacklog);
+              dataStorage.setLocalData("dailyTasks", newDaily);
+              dataStorage.setLocalData("backlogTasks", newBacklog);
+              break;
+            }
+            case "settings": {
+              // settings 表只有一行（按 user_id），取最后一条即可
+              const latestRow = rows[rows.length - 1];
+              const settings = applySettingsRowLocal(latestRow);
+              if (settings) {
+                setDarkMode(settings.darkMode);
+                setTheme(settings.theme);
+                dataStorage.setLocalData("darkMode", settings.darkMode);
+                dataStorage.setLocalData("theme", settings.theme);
+              }
+              break;
+            }
+            default:
+              break;
+          }
+        });
+
+        dataStorage.setLastPulledAt(table, maxUpdatedAt);
+      } catch (error) {
+        console.warn(`⚠️ Pull failed for table ${table}:`, error);
+      }
+    }
+  };
+
+  // 当用户登录/登出时更新 storage 的用户 ID 提供者，并处理挂载时的全量拉取 +
+  // visibilitychange 触发的增量拉取
   useEffect(() => {
     // ⭐ 认证状态还在加载时，不要执行任何操作
     // 否则会错误地将 _current_user_id 设为 'anonymous'
@@ -235,186 +367,79 @@ export default function Home() {
       console.log('⏳ Auth still loading, skipping user change handling...');
       return;
     }
-    
+
     const handleUserChange = async () => {
       dataStorage.setUserIdProvider(() => {
         return user?.id || null;
       });
-      
+
+      // 注入与认证共享的 Supabase client
+      if (supabaseClient) {
+        dataStorage.setSupabaseClientProvider(() => supabaseClient);
+      }
+
       // 检测用户切换
       const userSwitched = dataStorage.checkUserSwitch();
 
       if (userSwitched) {
-        console.log('🔄 User switched, checking for anonymous data...');
-
-        // ✅ 用户切换，重置同步标志
-        hasInitialSyncRef.current = false;
-
-        // ⭐ 先尝试初始化，检查是否有匿名数据需要处理（强制重新初始化）
-        const initResult = await dataStorage.initializeStorage({
-          forceReinit: true,  // ⭐ 强制重新初始化
-          skipAnonymousCheck: false
-        });
-        
-        // 如果有匿名数据需要用户确认
-        if (initResult && initResult.needsAnonymousDataMerge) {
-          console.log('📋 Anonymous data detected, showing merge dialog...');
-          setAnonymousDataToMerge(initResult.anonymousData);
-          setShowAnonymousMergeDialog(true);
-          return; // 等待用户选择
-        }
-        
-        // 没有匿名数据，直接重新加载数据
-        await reloadAllData(initResult);
-      } else {
-        // ✅ 修复：用户未切换，只在首次认证完成时同步一次
-        // ⚠️ 关键修复：只有当 user 存在时才更新 userId，避免在 user 加载过程中错误设置为 'anonymous'
-        if (!authenticated || !user) {
-          console.log('⏳ User or auth not ready, waiting...');
-          return;
-        }
-
-        dataStorage.updateCurrentUserId();
-
-        if (!hasInitialSyncRef.current) {
-          console.log('🔄 First-time sync: User authenticated, syncing server data...');
-          hasInitialSyncRef.current = true; // ✅ 标记已同步
-          setIsSyncingData(true);
-
-          try {
-            // 强制重新初始化，同步服务器数据
-            const initResult = await dataStorage.initializeStorage({
-              forceReinit: true,
-              skipAnonymousCheck: true
-            });
-
-            // 如果有服务器数据更新，重新加载
-            if (initResult) {
-              console.log('📥 Server data synced, reloading...');
-              await reloadAllData(initResult);
-            }
-          } catch (error) {
-            console.warn('⚠️ Server sync failed:', error);
-          } finally {
-            setIsSyncingData(false);
-          }
-        } else {
-          console.log('✅ Already synced, skipping duplicate sync');
-        }
+        console.log('🔄 User switched, clearing local data...');
+        dataStorage.clearAllData();
+        setDailyTasks({});
+        setBacklogTasks([]);
+        setCustomTags([]);
+        setHabits([]);
+        setYearlyGoals([]);
+        setQuarterlyGoals([]);
+        setWeeklyGoals([]);
       }
+
+      dataStorage.updateCurrentUserId();
+
+      if (!authenticated || !user) {
+        console.log('⏳ User or auth not ready / anonymous, skip remote pull');
+        return;
+      }
+
+      // ⭐ 展示一次性提醒："检测到本地有未关联账号的数据，登录后会自动同步"
+      // 新模型不再需要用户选择"合并/丢弃"：本地数据会在下一次写队列 flush 时自然推送上去。
+      if (dataStorage.hasAnonymousData()) {
+        toast.info('检测到本地数据', {
+          description: '将自动同步到你的账号',
+        });
+      }
+
+      setIsSyncingData(true);
+      try {
+        await pullAllChanges();
+      } catch (error) {
+        console.warn('⚠️ Initial pull failed:', error);
+      } finally {
+        setIsSyncingData(false);
+      }
+
+      // 注册 beforeunload / visibilitychange 兜底 flush
+      dataStorage.registerBeforeUnloadFlush();
     };
 
     handleUserChange();
-  }, [user, authenticated, authLoading]); // 监听 user、authenticated 和 authLoading 的变化
 
-  // 重新加载所有数据的辅助函数
-  const reloadAllData = async (restoredData) => {
-    // 获取默认值的辅助函数
-    const getDefaultValue = (key) => {
-      switch (key) {
-        case 'dailyTasks': return {};
-        case 'backlogTasks':
-        case 'customTags':
-        case 'habits':
-        case 'yearlyGoals':
-        case 'quarterlyGoals':
-        case 'weeklyGoals': return [];
-        case 'darkMode': return false;
-        case 'theme': return 'theme-modern';
-        default: return null;
+    // visibilitychange 触发的增量拉取（回到前台时）
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && authenticated && user) {
+        pullAllChanges().catch((error) => {
+          console.warn('⚠️ Visibility-triggered pull failed:', error);
+        });
       }
     };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
-    // 重新加载所有数据
-    const loadDataItem = (key, setter, processor = null) => {
-      let data = null;
-
-      // ✅ 修复：使用 hasOwnProperty 检查 key 是否存在
-      if (restoredData && restoredData.hasOwnProperty(key)) {
-        data = restoredData[key];
-        console.log(`📦 Using restored data for ${key}`, data);
-      } else {
-        // 否则从 localStorage 读取
-        data = dataStorage.getLocalData(key);
-      }
-
-      // 应用处理器（如果提供）
-      if (data && processor) {
-        data = processor(data);
-      }
-
-      // ✅ 修复：始终调用 setter，使用默认值
-      setter(data !== null && data !== undefined ? data : getDefaultValue(key));
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-    
-    // 重新加载所有数据
-    loadDataItem("darkMode", setDarkMode);
-    loadDataItem("theme", setTheme);
-    
-    loadDataItem("dailyTasks", setDailyTasks, processTasks);
-    loadDataItem("customTags", setCustomTags);
-    loadDataItem("habits", setHabits);
-    loadDataItem("backlogTasks", setBacklogTasks, processBacklogTasks);
-    loadDataItem("yearlyGoals", setYearlyGoals, processYearlyGoals);
-    loadDataItem("quarterlyGoals", setQuarterlyGoals, processQuarterlyGoals);
-    loadDataItem("weeklyGoals", setWeeklyGoals, processWeeklyGoals);
-    
-    console.log('✅ Data reloaded');
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, authenticated, authLoading, supabaseClient]); // 监听 user、authenticated、authLoading 和 supabaseClient 的变化
 
-  // 处理匿名数据合并
-  const handleMergeAnonymousData = async () => {
-    console.log('✅ User chose to merge anonymous data');
-    setShowAnonymousMergeDialog(false);
-    
-    // 使用 mergeAnonymousData 选项重新初始化（强制重新初始化）
-    const restoredData = await dataStorage.initializeStorage({ 
-      forceReinit: true,
-      skipAnonymousCheck: true,
-      mergeAnonymousData: true 
-    });
-    
-    // 重新加载所有数据
-    await reloadAllData(restoredData);
-    
-    toast.success('数据合并成功', {
-      description: '匿名数据已合并到您的账号并同步到云端'
-    });
-  };
-
-  // 处理丢弃匿名数据
-  const handleDiscardAnonymousData = async () => {
-    console.log('🗑️  User chose to discard anonymous data');
-    setShowAnonymousMergeDialog(false);
-
-    try {
-      // ✅ 新增：先清空所有状态
-      setDailyTasks({});
-      setBacklogTasks([]);
-      setCustomTags([]);
-      setHabits([]);
-      setYearlyGoals([]);
-      setQuarterlyGoals([]);
-      setWeeklyGoals([]);
-
-      // 使用 discardAnonymousData 选项重新初始化（强制重新初始化）
-      const restoredData = await dataStorage.initializeStorage({
-        forceReinit: true,
-        skipAnonymousCheck: true,
-        discardAnonymousData: true
-      });
-
-      // 重新加载所有数据
-      await reloadAllData(restoredData);
-
-      toast.success('已清空本地数据', {
-        description: '已从云端恢复您的账号数据'
-      });
-    } catch (error) {
-      console.error('❌ Failed to discard data:', error);
-      toast.error('操作失败，请刷新页面重试');
-    }
-  };
+  // 处理匿名使用风险提醒 - 用户点击"我知道了"
 
   // 处理匿名使用风险提醒 - 用户点击"我知道了"
   const handleDismissAnonymousWarning = () => {
@@ -770,11 +795,12 @@ export default function Home() {
     });
   };
 
-  // ✅ 年度目标删除函数（使用 immediateBackup）
+  // ✅ 年度目标删除函数：墓碑删除单行并立即 flush（不等待防抖）
   const deleteYearlyGoal = (goalId) => {
     const newYearlyGoals = yearlyGoals.filter((goal) => goal.id !== goalId);
     setYearlyGoals(newYearlyGoals);
-    dataStorage.immediateBackup('yearlyGoals', newYearlyGoals);
+    dataStorage.queueMutation('yearlyGoals', 'delete', goalId, null);
+    dataStorage.flushMutationQueue();
   };
 
   // Quarterly goal management functions
@@ -822,8 +848,9 @@ export default function Home() {
     const newQuarterlyGoals = quarterlyGoals.filter((goal) => goal.id !== goalId);
     setQuarterlyGoals(newQuarterlyGoals);
 
-    // ✅ 删除操作使用立即备份
-    dataStorage.immediateBackup('quarterlyGoals', newQuarterlyGoals);
+    // ✅ 删除操作：墓碑删除单行并立即 flush
+    dataStorage.queueMutation('quarterlyGoals', 'delete', goalId, null);
+    dataStorage.flushMutationQueue();
 
     // Update yearly goal progress if it was associated
     if (hadYearlyGoal) {
@@ -990,8 +1017,9 @@ export default function Home() {
     const newWeeklyGoals = weeklyGoals.filter((g) => g.id !== goalId);
     setWeeklyGoals(newWeeklyGoals);
 
-    // ✅ 删除操作使用立即备份
-    dataStorage.immediateBackup('weeklyGoals', newWeeklyGoals);
+    // ✅ 删除操作：墓碑删除单行并立即 flush
+    dataStorage.queueMutation('weeklyGoals', 'delete', goalId, null);
+    dataStorage.flushMutationQueue();
 
     // Update quarterly goal progress if it was associated
     if (hadQuarterlyGoal) {
@@ -1042,7 +1070,12 @@ export default function Home() {
       });
 
       setQuarterlyGoals(newQuarterlyGoals);
-      dataStorage.immediateBackup('quarterlyGoals', newQuarterlyGoals);
+      // ✅ 只有被重新计算进度的那一个季度目标发生了变化，逐行 upsert 即可
+      const changedQuarterlyGoal = newQuarterlyGoals.find((g) => g.id === hadQuarterlyGoal);
+      if (changedQuarterlyGoal) {
+        dataStorage.queueMutation('quarterlyGoals', 'upsert', changedQuarterlyGoal.id, changedQuarterlyGoal);
+        dataStorage.flushMutationQueue();
+      }
 
       setTimeout(() => updateYearlyGoalsProgress(), 0);
     }
@@ -1686,11 +1719,16 @@ export default function Home() {
     setDailyTasks(newDailyTasks);
     setBacklogTasks(newBacklogTasks);
 
-    // 8. ✅ 立即备份（绕过防抖，避免竞态条件）
-    // 直接调用即可，因为传入的是预计算的新数据，不依赖 React 状态
-    console.log('⚡ Triggering immediate backup after moveTask');
-    dataStorage.immediateBackup('dailyTasks', newDailyTasks);
-    dataStorage.immediateBackup('backlogTasks', newBacklogTasks);
+    // 8. ✅ 单行 upsert 并立即 flush：任务移动只涉及这一条任务记录本身，
+    // 不需要像旧版那样整表备份。dailyTasks 的 scheduledDate 是通过对象的 key 隐含的，
+    // movedTask 本身不带这个字段，这里补上，否则远端的 scheduled_date 会被写成 null。
+    console.log('⚡ Queueing single-row mutation after moveTask');
+    const movedTable = destination.type === 'backlog' ? 'backlogTasks' : 'dailyTasks';
+    const movedTaskPayload = destination.type === 'backlog'
+      ? movedTask
+      : { ...movedTask, scheduledDate: getDateString(destination.date) };
+    dataStorage.queueMutation(movedTable, 'upsert', movedTask.id, movedTaskPayload);
+    dataStorage.flushMutationQueue();
 
     return true;
   };
@@ -1709,10 +1747,16 @@ export default function Home() {
     }
     
     let cleanedCount = 0;
-    
-    // ✅ 修复：预计算最终状态，然后一次性更新并立即备份
+
+    // ✅ 修复：预计算最终状态，然后一次性更新
     let newDailyTasks = { ...dailyTasks };
     let newBacklogTasks = [...backlogTasks];
+    // 远端 ts_tasks 按 id 是单行存储的，重复副本是本地展示层面上同一个 id 出现在
+    // 多个日期分组/backlog 里的产物，远端本来就只有一行。所以这里不需要对"删除的副本"
+    // 发出 delete mutation（那会把这个任务从远端整个删掉），只需要把最终保留的那个
+    // 位置（keepLocation）的数据 upsert 一次，确保 scheduled_date 等字段与本地保留的
+    // 版本一致即可。
+    const keepPayloads = [];
 
     duplicates.forEach(({ taskId, locations }) => {
       // 找出最新的位置（按日期排序，Backlog 视为最新）
@@ -1727,7 +1771,7 @@ export default function Home() {
 
       console.log(`🔧 Task ${taskId} (${locations[0].title}): 保留 ${keepLocation.type}${keepLocation.dateString || ''}, 删除 ${removeLocations.length} 个副本`);
 
-      // 删除旧副本
+      // 删除旧副本（仅本地展示层面，远端无需变化）
       removeLocations.forEach(loc => {
         if (loc.type === 'backlog') {
           newBacklogTasks = newBacklogTasks.filter(t => t.id !== taskId);
@@ -1744,15 +1788,29 @@ export default function Home() {
         }
         cleanedCount++;
       });
+
+      keepPayloads.push({ taskId, keepLocation });
     });
 
     // 一次性更新状态
     setDailyTasks(newDailyTasks);
     setBacklogTasks(newBacklogTasks);
 
-    // ✅ 立即备份，确保清理结果不会丢失
-    dataStorage.immediateBackup('dailyTasks', newDailyTasks);
-    dataStorage.immediateBackup('backlogTasks', newBacklogTasks);
+    // ✅ 把每个保留下来的任务 upsert 一次，确保远端字段（尤其是 scheduled_date）与本地一致
+    keepPayloads.forEach(({ taskId, keepLocation }) => {
+      const table = keepLocation.type === 'backlog' ? 'backlogTasks' : 'dailyTasks';
+      const list = keepLocation.type === 'backlog'
+        ? newBacklogTasks
+        : (newDailyTasks[keepLocation.dateString] || []);
+      const task = list.find(t => t.id === taskId);
+      if (task) {
+        const payload = keepLocation.type === 'backlog'
+          ? task
+          : { ...task, scheduledDate: keepLocation.dateString };
+        dataStorage.queueMutation(table, 'upsert', taskId, payload);
+      }
+    });
+    dataStorage.flushMutationQueue();
 
     toast.success('数据清理完成', {
       description: `找到 ${duplicates.length} 个重复任务，删除了 ${cleanedCount} 个副本`
@@ -1952,8 +2010,9 @@ export default function Home() {
   const deleteBacklogTask = (taskId) => {
     const newBacklogTasks = backlogTasks.filter((task) => task.id !== taskId);
     setBacklogTasks(newBacklogTasks);
-    // ✅ 删除操作使用立即备份，避免刷新后数据恢复
-    dataStorage.immediateBackup('backlogTasks', newBacklogTasks);
+    // ✅ 墓碑删除单行并立即 flush（不依赖 useEffect 里对整表的 diff，避免时序问题）
+    dataStorage.queueMutation('backlogTasks', 'delete', taskId, null);
+    dataStorage.flushMutationQueue();
   };
 
   const updateBacklogTask = (taskId, updates) => {
@@ -2086,17 +2145,24 @@ export default function Home() {
     // Check if it's a habit task
     if (id.startsWith("habit-")) {
       const habitId = id.split("-")[1];
+      const deletedHabit = habits.find((habit) => habit.id === habitId);
       const updatedHabits = habits.filter((habit) => habit.id !== habitId);
       setHabits(updatedHabits);
-      // ✅ 删除操作使用立即备份
-      dataStorage.immediateBackup('habits', updatedHabits);
+      // ✅ 墓碑删除这个习惯本身，并把它所有的完成记录一并墓碑（镜像 diffHabits 里
+      // "整个习惯被删除"的级联逻辑），然后立即 flush。
+      dataStorage.queueMutation('habits', 'delete', habitId, null);
+      (deletedHabit?.completedDates || []).forEach((date) => {
+        dataStorage.queueMutation('habitCompletions', 'delete', `${habitId}_${date}`, null);
+      });
+      dataStorage.flushMutationQueue();
     } else {
       // Regular task/subtask deletion
       const updatedTasks = removeTaskFromList(id, currentTasks);
       const newDailyTasks = { ...dailyTasks, [dateString]: updatedTasks };
       setDailyTasks(newDailyTasks);
-      // ✅ 删除操作使用立即备份
-      dataStorage.immediateBackup('dailyTasks', newDailyTasks);
+      // ✅ 墓碑删除单行并立即 flush
+      dataStorage.queueMutation('dailyTasks', 'delete', id, null);
+      dataStorage.flushMutationQueue();
     }
   };
 
@@ -2299,8 +2365,10 @@ export default function Home() {
               dataStorage.setLocalData('theme', data.theme); // ✅ 持久化
             }
 
-            // ✅ 等待一下让备份完成（1秒防抖 + 网络延迟）
-            await new Promise(resolve => setTimeout(resolve, 1500));
+            // ✅ 上面每个 setLocalData 调用都已经把变更 diff 进了写队列（outbox），
+            // 这里直接显式 flush 一次，确保落库后再提示"已保存到云端"，
+            // 不再依赖"等待 1.5 秒防抖"这种不确定的猜测。
+            await dataStorage.flushMutationQueue();
 
             setIsSyncingData(false);
             toast.success("数据导入成功", {
@@ -2959,17 +3027,6 @@ export default function Home() {
               </div>
             </motion.div>
           </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* 匿名数据合并对话框 */}
-      <AnimatePresence>
-        {showAnonymousMergeDialog && anonymousDataToMerge && (
-          <AnonymousDataMergeDialog
-            onMerge={handleMergeAnonymousData}
-            onDiscard={handleDiscardAnonymousData}
-            anonymousDataSummary={anonymousDataToMerge}
-          />
         )}
       </AnimatePresence>
 
