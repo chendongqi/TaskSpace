@@ -20,6 +20,15 @@ WORKDIR /build/apps/taskspace
 # 使用 --legacy-peer-deps 避免 peer dependency 冲突
 RUN npm install --legacy-peer-deps || npm install
 
+# NEXT_PUBLIC_* 变量会在构建期被 Next.js 固化进打包产物，运行时再改环境变量不会生效，
+# 所以必须通过 --build-arg 在构建时显式传入，而不是依赖容器运行时的 .env/environment
+ARG NEXT_PUBLIC_SUPABASE_URL
+ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
+ARG NEXT_PUBLIC_APP_KEY
+ENV NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL} \
+    NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY} \
+    NEXT_PUBLIC_APP_KEY=${NEXT_PUBLIC_APP_KEY}
+
 # Build the application (仍在 taskspace 目录)
 RUN npm run build
 
