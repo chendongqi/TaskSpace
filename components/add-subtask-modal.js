@@ -268,7 +268,7 @@ export function AddSubtaskModal({
                   Create Subtask
                 </h2>
                 <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
-                  for "{parentTask.title}"
+                  for &quot;{parentTask.title}&quot;
                 </p>
               </div>
             </div>

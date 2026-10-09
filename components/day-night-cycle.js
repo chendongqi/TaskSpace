@@ -29,12 +29,6 @@ function AnimatedWeekday({ dayIndex, fontSize, textColor }) {
         <motion.div
           key={day}
           className="absolute flex items-center justify-start font-extrabold"
-          style={{
-            y: useSpring((index - dayIndex) * height, {
-              stiffness: 300,
-              damping: 30,
-            }),
-          }}
           animate={{
             y: (index - dayIndex) * height,
           }}

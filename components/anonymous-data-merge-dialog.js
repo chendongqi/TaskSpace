@@ -132,7 +132,7 @@ export function AnonymousDataMergeDialog({ onMerge, onDiscard, anonymousDataSumm
 
         {/* 提示 */}
         <p className="text-center text-xs text-gray-500 dark:text-gray-500 mt-4">
-          选择"合并"将保留所有数据，选择"丢弃"将清空本地数据并恢复账号的云端数据
+          选择&quot;合并&quot;将保留所有数据，选择&quot;丢弃&quot;将清空本地数据并恢复账号的云端数据
         </p>
       </motion.div>
     </motion.div>
