@@ -1,20 +1,23 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { useAuth, useSupabaseClient } from "@wonder-lab/auth-sdk";
 import { X, ArrowLeft, GitBranch } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { TreeNode } from "@/components/ui/tree-node";
+import { SiblingList } from "@/components/ui/tree-node";
 import {
   buildTree,
+  flattenTree,
   calculateTreeProgress,
   createTopicRoot,
   createChildNode,
   updateNodeTitle,
   updateNodeStatus,
+  updateNodeFields,
+  reorderSiblings,
   deleteNodeAndDescendants,
   deleteTopicRoot,
   fetchAllTopicNodes,
@@ -204,6 +207,51 @@ export function TechTopicTree({ onClose }) {
     }
   };
 
+  const handleUpdateNodeFields = async (id, fields) => {
+    refreshRowsLocally((prev) =>
+      prev.map((r) =>
+        r.id === id
+          ? {
+              ...r,
+              ...("priority" in fields ? { priority: fields.priority } : {}),
+              ...("assignee" in fields ? { assignee: fields.assignee } : {}),
+              ...("plannedStart" in fields ? { planned_start: fields.plannedStart } : {}),
+              ...("plannedEnd" in fields ? { planned_end: fields.plannedEnd } : {}),
+              ...("dependsOn" in fields ? { depends_on: fields.dependsOn } : {}),
+              ...("comment" in fields ? { comment: fields.comment } : {}),
+            }
+          : r
+      )
+    );
+    try {
+      await updateNodeFields(supabase, id, fields);
+    } catch (err) {
+      console.error("更新节点字段失败:", err);
+      toast.error("更新节点字段失败");
+      loadAll();
+    }
+  };
+
+  const handleReorderSiblings = async (_parentId, orderedIds) => {
+    const previousRows = allRows;
+    refreshRowsLocally((prev) =>
+      prev.map((r) => {
+        const idx = orderedIds.indexOf(r.id);
+        return idx === -1 ? r : { ...r, sort_order: idx };
+      })
+    );
+    try {
+      await reorderSiblings(
+        supabase,
+        orderedIds.map((id, idx) => ({ id, sortOrder: idx }))
+      );
+    } catch (err) {
+      console.error("调整节点顺序失败:", err);
+      toast.error("调整节点顺序失败");
+      setAllRows(previousRows);
+    }
+  };
+
   const handleAddChild = async (parentId) => {
     if (!userId || !activeTopicRootId) return;
     const siblingCount = allRows.filter((r) => r.parent_id === parentId).length;
@@ -301,7 +349,7 @@ export function TechTopicTree({ onClose }) {
                   <GitBranch className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-extrabold">技术课题拆解树</h2>
+                  <h2 className="text-xl font-extrabold">课题拆解树</h2>
                   <p className="text-sm text-muted-foreground">
                     把一个大课题拆成可执行的任意深度任务树 · 独立于日常任务系统
                   </p>
@@ -330,6 +378,8 @@ export function TechTopicTree({ onClose }) {
                 onAddChild={handleAddChild}
                 onDelete={handleDeleteNode}
                 onAddRootLevelChild={handleAddRootLevelChild}
+                onUpdateFields={handleUpdateNodeFields}
+                onReorderChildren={handleReorderSiblings}
               />
             ) : (
               <GridView
@@ -454,7 +504,19 @@ function DetailView({
   onAddChild,
   onDelete,
   onAddRootLevelChild,
+  onUpdateFields,
+  onReorderChildren,
 }) {
+  const allNodesInTopic = useMemo(() => flattenTree(topic.tree), [topic.tree]);
+  const nodeTitleById = useMemo(
+    () => new Map(allNodesInTopic.map((n) => [n.id, n.title])),
+    [allNodesInTopic]
+  );
+  const dependencyCandidates = useMemo(
+    () => allNodesInTopic.map((n) => ({ id: n.id, title: n.title })),
+    [allNodesInTopic]
+  );
+
   return (
     <div>
       <button
@@ -502,18 +564,20 @@ function DetailView({
         </div>
 
         <div className="relative">
-          {(topic.root?.children || []).map((node) => (
-            <TreeNode
-              key={node.id}
-              node={node}
-              collapsedIds={collapsedIds}
-              onToggleCollapse={onToggleCollapse}
-              onCycleStatus={onCycleStatus}
-              onRename={onRename}
-              onAddChild={onAddChild}
-              onDelete={onDelete}
-            />
-          ))}
+          <SiblingList
+            parentId={topic.root?.id}
+            childNodes={topic.root?.children || []}
+            collapsedIds={collapsedIds}
+            onToggleCollapse={onToggleCollapse}
+            onCycleStatus={onCycleStatus}
+            onRename={onRename}
+            onAddChild={onAddChild}
+            onDelete={onDelete}
+            onUpdateFields={onUpdateFields}
+            onReorderChildren={onReorderChildren}
+            dependencyCandidates={dependencyCandidates}
+            nodeTitleById={nodeTitleById}
+          />
         </div>
 
         <div className="pl-[20px] pt-1">
