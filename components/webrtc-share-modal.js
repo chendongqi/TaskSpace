@@ -106,7 +106,6 @@ export function WebRTCShareModal({
         }, 10000); // 10 second timeout
 
         wsRef.current.onopen = () => {
-          console.log("Connected to signaling server");
           clearTimeout(connectionTimeout);
           setConnectionState("connected");
           resolve(wsRef.current);
@@ -118,11 +117,6 @@ export function WebRTCShareModal({
         };
 
         wsRef.current.onclose = (event) => {
-          console.log(
-            "Disconnected from signaling server",
-            event.code,
-            event.reason
-          );
           clearTimeout(connectionTimeout);
           setConnectionState("disconnected");
 
@@ -169,39 +163,28 @@ export function WebRTCShareModal({
   };
 
   const handleSignalingMessage = async (message) => {
-    console.log("Received signaling message:", message.type);
-
     switch (message.type) {
       case "connected":
-        console.log(
-          "Server confirmed connection with client ID:",
-          message.clientId
-        );
         break;
 
       case "room-created":
-        console.log("Room created:", message.roomId);
         setStatus("hosting");
         setRoomId(message.roomId);
         break;
 
       case "room-joined":
-        console.log("Room joined:", message.roomId);
         setStatus("connected");
         break;
 
       case "peers-list":
-        console.log("Peers list received:", message.peers);
         setNearbyPeers(message.peers);
         break;
 
       case "peer-joined":
-        console.log("Peer joined:", message.peer);
         setNearbyPeers((prev) => [...prev, message.peer]);
         break;
 
       case "peer-left":
-        console.log("Peer left:", message.peerId);
         setNearbyPeers((prev) => prev.filter((p) => p.id !== message.peerId));
         break;
 
@@ -228,7 +211,7 @@ export function WebRTCShareModal({
         break;
 
       default:
-        console.log("Unknown message type:", message.type);
+        break;
     }
   };
 
@@ -247,7 +230,6 @@ export function WebRTCShareModal({
     };
 
     pc.onconnectionstatechange = () => {
-      console.log("Connection state:", pc.connectionState);
       if (pc.connectionState === "connected") {
         setStatus("connected");
       } else if (
@@ -270,8 +252,6 @@ export function WebRTCShareModal({
       setIsHost(true);
       setStatus("connecting"); // FIX: Wait for server confirmation
       setErrorMessage("");
-
-      console.log("Starting to host room:", newRoomId);
 
       const ws = await connectToSignalingServer();
 
@@ -303,8 +283,6 @@ export function WebRTCShareModal({
       setStatus("connecting");
       setErrorMessage("");
 
-      console.log("Attempting to join room:", inputRoomId);
-
       const ws = await connectToSignalingServer();
 
       // Send join room message
@@ -326,7 +304,6 @@ export function WebRTCShareModal({
   // Data sharing functions
   const sendDataToPeer = async (peerId) => {
     try {
-      console.log("Sending data to peer:", peerId);
       const pc = createPeerConnection();
       peerConnectionRef.current = pc;
 
@@ -336,7 +313,6 @@ export function WebRTCShareModal({
       });
 
       dataChannel.onopen = () => {
-        console.log("Data channel opened, sending data");
         const todoData = {
           dailyTasks,
           customTags,
@@ -383,7 +359,6 @@ export function WebRTCShareModal({
   // WebRTC message handlers
   const handleReceiveOffer = async (offer, from) => {
     try {
-      console.log("Handling offer from:", from);
       const pc = createPeerConnection();
       peerConnectionRef.current = pc;
 
@@ -391,7 +366,6 @@ export function WebRTCShareModal({
         const dataChannel = event.channel;
         dataChannel.onmessage = (event) => {
           try {
-            console.log("Received data from peer");
             const receivedTodoData = JSON.parse(event.data);
             setReceivedData(receivedTodoData);
             // On client side, when data is received, reset status to 'idle' to hide connected section
@@ -452,7 +426,6 @@ export function WebRTCShareModal({
 
   // Cleanup functions
   const resetState = () => {
-    console.log("Resetting state");
     setIsHost(false);
     setIsClient(false);
     setRoomId("");

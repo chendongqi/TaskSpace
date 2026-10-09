@@ -39,7 +39,6 @@ export function SettingsModal({
   const handleLogout = async () => {
     if (onLogout) {
       // ⭐ 清空本地数据以防止数据泄露
-      console.log('🗑️  Logging out, clearing local data...');
       dataStorage.clearAllData();
       
       await onLogout();

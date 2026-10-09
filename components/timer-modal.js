@@ -64,9 +64,7 @@ export function TimerModal({
   const playCompleteSound = () => {
     if (completeAudioRef.current) {
       completeAudioRef.current.currentTime = 0;
-      completeAudioRef.current
-        .play()
-        .catch((e) => console.log("Complete sound play failed:", e));
+      completeAudioRef.current.play().catch(() => {});
     }
   };
 
@@ -82,7 +80,7 @@ export function TimerModal({
             const permission = await Notification.requestPermission();
             setNotificationPermission(permission);
           } catch (error) {
-            console.log("Notification permission request failed:", error);
+            console.error("Notification permission request failed:", error);
           }
         };
         
@@ -127,7 +125,7 @@ export function TimerModal({
         }, 8000);
 
       } catch (error) {
-        console.log("Failed to show notification:", error);
+        console.error("Failed to show notification:", error);
       }
     }
   };
@@ -166,9 +164,6 @@ export function TimerModal({
               audioContextRef.current.destination
             );
 
-            console.log(
-              `Audio ${key} loaded: ${trimmedBuffer.duration.toFixed(3)}s`
-            );
           } catch (error) {
             console.error(`Failed to load audio ${key}:`, error);
             // Fallback to HTML5 audio
@@ -184,7 +179,6 @@ export function TimerModal({
         ]);
 
         isInitializedRef.current = true;
-        console.log("Web Audio API initialized successfully");
       } catch (error) {
         console.error("Web Audio API initialization failed:", error);
         initFallbackAudio();
@@ -243,7 +237,6 @@ export function TimerModal({
     };
 
     const initFallbackAudio = () => {
-      console.log("Using HTML5 Audio fallback");
       createFallbackAudio("/music/playing.mp3", "playing");
       createFallbackAudio("/music/break.mp3", "break");
       createFallbackAudio("/music/overtime.mp3", "overtime");
@@ -308,8 +301,6 @@ export function TimerModal({
       // Start immediately
       source.start(0);
       audioSourcesRef.current[audioKey] = source;
-
-      console.log(`Started seamless loop for ${audioKey}`);
     };
 
     startSeamlessLoop();
@@ -522,7 +513,7 @@ export function TimerModal({
         const permission = await Notification.requestPermission();
         setNotificationPermission(permission);
       } catch (error) {
-        console.log("Notification permission request failed:", error);
+        console.error("Notification permission request failed:", error);
       }
     }
 
@@ -767,7 +758,12 @@ export function TimerModal({
           >
             {/* Task Selection - Only show during work sessions */}
             {!isBreak && (
-              <motion.div variants={itemVariants} className="space-y-3">
+              <motion.div
+                initial="hidden"
+                animate="visible"
+                variants={itemVariants}
+                className="space-y-3"
+              >
                 <label className="text-sm font-extrabold text-gray-700 dark:text-gray-200 uppercase tracking-wider">
                   {!isRunning
                     ? "专注任务"
@@ -853,6 +849,8 @@ export function TimerModal({
               <>
                 {/* Timer Display */}
                 <motion.div
+                  initial="hidden"
+                  animate="visible"
                   variants={itemVariants}
                   className="text-center space-y-4"
                 >
@@ -979,7 +977,12 @@ export function TimerModal({
 
                 {/* Preset Selection - Only show during work sessions */}
                 {!isBreak && (
-                  <motion.div variants={itemVariants} className="space-y-3">
+                  <motion.div
+                    initial="hidden"
+                    animate="visible"
+                    variants={itemVariants}
+                    className="space-y-3"
+                  >
                     <label className="text-sm font-extrabold text-gray-700 dark:text-gray-200 uppercase tracking-wider">
                       快速预设
                     </label>
@@ -1010,7 +1013,12 @@ export function TimerModal({
                 )}
 
                 {/* Control Buttons - Music Player Style */}
-                <motion.div variants={itemVariants} className="space-y-4">
+                <motion.div
+                  initial="hidden"
+                  animate="visible"
+                  variants={itemVariants}
+                  className="space-y-4"
+                >
                   {/* Music Player Controls */}
                   <div className="flex justify-center items-center gap-8">
                     {/* Stop/Reset Button */}

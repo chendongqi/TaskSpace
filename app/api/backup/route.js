@@ -47,19 +47,9 @@ async function ensureBackupDir() {
 
 // POST - 备份数据
 export async function POST(request) {
-  console.log('🔄 Direct Backup API called');
-
   try {
     const requestData = await request.json();
     const { key, data, timestamp, userId } = requestData;
-
-    console.log('📦 Direct backup request data:', {
-      key,
-      userId,
-      timestamp,
-      dataType: typeof data,
-      hasData: !!data
-    });
 
     if (!key || data === undefined || !userId) {
       console.error('❌ Missing required fields:', { key: !!key, data: data !== undefined, userId: !!userId });
@@ -75,7 +65,6 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Invalid userId or key' }, { status: 400 });
     }
 
-    console.log(`📁 Ensuring backup directory: ${BACKUP_DIR}`);
     await ensureBackupDir();
 
     const userDir = path.join(BACKUP_DIR, sanitizedUserId);
@@ -86,7 +75,6 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Invalid path' }, { status: 400 });
     }
 
-    console.log(`👤 Creating user directory: ${userDir}`);
     await fs.mkdir(userDir, { recursive: true });
 
     const backupFile = path.join(userDir, `${sanitizedKey}.json`);
@@ -104,10 +92,8 @@ export async function POST(request) {
       userId: sanitizedUserId
     };
 
-    console.log(`💾 Writing backup file: ${backupFile}`);
     await fs.writeFile(backupFile, JSON.stringify(backupData, null, 2));
 
-    console.log('✅ Backup successful');
     return NextResponse.json({ success: true, timestamp });
   } catch (error) {
     console.error('🔥 Backup error:', error);
@@ -120,14 +106,10 @@ export async function POST(request) {
 
 // GET - 恢复数据
 export async function GET(request) {
-  console.log('🔍 Restore API called');
-
   try {
     const { searchParams } = new URL(request.url);
     const key = searchParams.get('key');
     const userId = searchParams.get('userId');
-
-    console.log('📋 Restore request params:', { key, userId });
 
     if (!key || !userId) {
       console.error('❌ Missing parameters:', { key: !!key, userId: !!userId });
@@ -151,15 +133,11 @@ export async function GET(request) {
       return NextResponse.json({ error: 'Invalid path' }, { status: 400 });
     }
 
-    console.log(`🔎 Looking for backup file: ${backupFile}`);
-
     try {
       const backupData = await fs.readFile(backupFile, 'utf8');
       const parsedData = JSON.parse(backupData);
-      console.log(`✅ Restore successful for key: ${sanitizedKey}`);
       return NextResponse.json(parsedData);
-    } catch (error) {
-      console.log(`📂 Backup file not found: ${backupFile}`, error.message);
+    } catch {
       return NextResponse.json({ error: 'Backup not found' }, { status: 404 });
     }
   } catch (error) {
@@ -173,8 +151,6 @@ export async function GET(request) {
 
 // DELETE - 清除用户所有备份
 export async function DELETE(request) {
-  console.log('🗑️ Delete backup API called');
-
   try {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
@@ -199,10 +175,8 @@ export async function DELETE(request) {
       return NextResponse.json({ error: 'Invalid path' }, { status: 400 });
     }
 
-    console.log(`🗑️ Deleting user backup directory: ${userDir}`);
     await fs.rm(userDir, { recursive: true, force: true });
 
-    console.log('✅ Delete successful');
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('🔥 Delete backup error:', error);

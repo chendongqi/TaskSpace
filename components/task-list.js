@@ -50,9 +50,7 @@ export function TaskList({
   const playCompleteSound = () => {
     if (completeAudioRef.current) {
       completeAudioRef.current.currentTime = 0;
-      completeAudioRef.current
-        .play()
-        .catch((e) => console.log("Complete sound play failed:", e));
+      completeAudioRef.current.play().catch(() => {});
     }
   };
 
@@ -298,28 +296,30 @@ export function TaskList({
                     animate="visible"
                     exit="exit"
                   >
-                    {sortedTasks.map((task, index) => (
-                      <TaskItem
-                        key={task.id}
-                        task={task}
-                        onTaskClick={handleTaskClick}
-                        onToggleTask={handleToggleTask}
-                        onToggleExpanded={toggleExpanded}
-                        onAddSubtask={handleAddSubtask}
-                        formatTime={formatTime}
-                        getTagInfo={getTagInfo}
-                        getTotalTime={getTotalTime}
-                        getTotalFocusTime={getTotalFocusTime}
-                        isHabit={false}
-                        variants={taskVariants}
-                        isLastTask={index === sortedTasks.length - 1}
-                        isExpanded={expandedTasks[task.id] || false}
-                        expandedTasks={expandedTasks}
-                        level={0}
-                        weeklyGoals={weeklyGoals}
-                        yearlyGoals={yearlyGoals}
-                      />
-                    ))}
+                    <AnimatePresence>
+                      {sortedTasks.map((task, index) => (
+                        <TaskItem
+                          key={task.id}
+                          task={task}
+                          onTaskClick={handleTaskClick}
+                          onToggleTask={handleToggleTask}
+                          onToggleExpanded={toggleExpanded}
+                          onAddSubtask={handleAddSubtask}
+                          formatTime={formatTime}
+                          getTagInfo={getTagInfo}
+                          getTotalTime={getTotalTime}
+                          getTotalFocusTime={getTotalFocusTime}
+                          isHabit={false}
+                          variants={taskVariants}
+                          isLastTask={index === sortedTasks.length - 1}
+                          isExpanded={expandedTasks[task.id] || false}
+                          expandedTasks={expandedTasks}
+                          level={0}
+                          weeklyGoals={weeklyGoals}
+                          yearlyGoals={yearlyGoals}
+                        />
+                      ))}
+                    </AnimatePresence>
                   </motion.div>
                 </motion.div>
               )}
@@ -340,127 +340,139 @@ export function TaskList({
         ) : (
           <>
             {/* Habits Section */}
-            {sortedHabitTasks.length > 0 && (
-          <motion.div
-            key="habits-section"
-            className="mb-6 mt-3"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-          >
-            <motion.button
-              onClick={() => toggleSection("habits")}
-              className="w-full text-left text-sm text-primary font-extrabold uppercase tracking-wide mb-3 flex items-center gap-2 hover:text-primary/80 transition-colors"
-              variants={headerVariants}
-              initial="hidden"
-              animate="visible"
-              exit="exit"
+            <motion.div
+              key="habits-section"
+              className="mb-6 mt-3"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.3 }}
             >
-              <motion.div
-                animate={{ rotate: collapsedSections.habits ? -90 : 0 }}
-                transition={{ duration: 0.2 }}
+              <motion.button
+                onClick={() => toggleSection("habits")}
+                className="w-full text-left text-sm text-primary font-extrabold uppercase tracking-wide mb-3 flex items-center gap-2 hover:text-primary/80 transition-colors"
+                variants={headerVariants}
+                initial="hidden"
+                animate="visible"
+                exit="exit"
               >
-                <ChevronDown className="h-4 w-4" />
-              </motion.div>
-              <RotateCcw className="h-4 w-4" />
-              习惯 ({sortedHabitTasks.filter((t) => t.completed).length}/
-              {sortedHabitTasks.length})
-            </motion.button>
-
-            <AnimatePresence>
-              {!collapsedSections.habits && (
                 <motion.div
-                  variants={sectionVariants}
-                  initial="hidden"
-                  animate="visible"
-                  exit="exit"
-                  className="overflow-hidden"
+                  animate={{ rotate: collapsedSections.habits ? -90 : 0 }}
+                  transition={{ duration: 0.2 }}
                 >
+                  <ChevronDown className="h-4 w-4" />
+                </motion.div>
+                <RotateCcw className="h-4 w-4" />
+                习惯 ({sortedHabitTasks.filter((t) => t.completed).length}/
+                {sortedHabitTasks.length})
+              </motion.button>
+
+              <AnimatePresence>
+                {!collapsedSections.habits && (
                   <motion.div
-                    className=""
-                    variants={containerVariants}
+                    variants={sectionVariants}
                     initial="hidden"
                     animate="visible"
                     exit="exit"
+                    className="overflow-hidden"
                   >
-                    {sortedHabitTasks.map((task) => (
-                      <TaskItem
-                        key={task.id}
-                        task={task}
-                        onTaskClick={handleTaskClick}
-                        onToggleTask={handleToggleTask}
-                        onToggleExpanded={toggleExpanded}
-                        onAddSubtask={handleAddSubtask}
-                        formatTime={formatTime}
-                        getTagInfo={getTagInfo}
-                        getTotalTime={getTotalTime}
-                        getTotalFocusTime={getTotalFocusTime}
-                        isHabit={true}
-                        variants={taskVariants}
-                        isLastTask={
-                          task.id ===
-                          sortedHabitTasks[sortedHabitTasks.length - 1].id
-                        }
-                        isExpanded={expandedTasks[task.id] || false}
-                        expandedTasks={expandedTasks}
-                        level={0}
-                        weeklyGoals={weeklyGoals}
-                        yearlyGoals={yearlyGoals}
-                      />
-                    ))}
+                    <motion.div
+                      className=""
+                      variants={containerVariants}
+                      initial="hidden"
+                      animate="visible"
+                      exit="exit"
+                    >
+                      <AnimatePresence>
+                        {sortedHabitTasks.map((task) => (
+                          <TaskItem
+                            key={task.id}
+                            task={task}
+                            onTaskClick={handleTaskClick}
+                            onToggleTask={handleToggleTask}
+                            onToggleExpanded={toggleExpanded}
+                            onAddSubtask={handleAddSubtask}
+                            formatTime={formatTime}
+                            getTagInfo={getTagInfo}
+                            getTotalTime={getTotalTime}
+                            getTotalFocusTime={getTotalFocusTime}
+                            isHabit={true}
+                            variants={taskVariants}
+                            isLastTask={
+                              task.id ===
+                              sortedHabitTasks[sortedHabitTasks.length - 1].id
+                            }
+                            isExpanded={expandedTasks[task.id] || false}
+                            expandedTasks={expandedTasks}
+                            level={0}
+                            weeklyGoals={weeklyGoals}
+                            yearlyGoals={yearlyGoals}
+                          />
+                        ))}
+                      </AnimatePresence>
+                    </motion.div>
                   </motion.div>
+                )}
+              </AnimatePresence>
+
+              {sortedHabitTasks.length === 0 && (
+                <motion.div
+                  key="no-habits-message"
+                  className="text-center py-8 text-muted-foreground"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                >
+                  <p className="text-sm">今天还没有习惯任务</p>
                 </motion.div>
               )}
-            </AnimatePresence>
-          </motion.div>
-        )}
+            </motion.div>
 
         {/* Regular Tasks Section */}
-        {sortedRegularTasks.length > 0 && (
-          <motion.div
-            key="tasks-section"
-            className="mb-6"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
+        <motion.div
+          key="tasks-section"
+          className="mb-6"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          <motion.button
+            onClick={() => toggleSection("tasks")}
+            className="w-full text-left text-sm text-primary font-extrabold uppercase tracking-wide mb-3 flex items-center gap-2 hover:text-primary/80 transition-colors"
+            variants={headerVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
           >
-            <motion.button
-              onClick={() => toggleSection("tasks")}
-              className="w-full text-left text-sm text-primary font-extrabold uppercase tracking-wide mb-3 flex items-center gap-2 hover:text-primary/80 transition-colors"
-              variants={headerVariants}
-              initial="hidden"
-              animate="visible"
-              exit="exit"
+            <motion.div
+              animate={{ rotate: collapsedSections.tasks ? -90 : 0 }}
+              transition={{ duration: 0.2 }}
             >
-              <motion.div
-                animate={{ rotate: collapsedSections.tasks ? -90 : 0 }}
-                transition={{ duration: 0.2 }}
-              >
-                <ChevronDown className="h-4 w-4" />
-              </motion.div>
-              <Calendar className="h-4 w-4" />
-              今日任务 ({sortedRegularTasks.filter((t) => t.completed).length}/
-              {sortedRegularTasks.length})
-            </motion.button>
+              <ChevronDown className="h-4 w-4" />
+            </motion.div>
+            <Calendar className="h-4 w-4" />
+            今日任务 ({sortedRegularTasks.filter((t) => t.completed).length}/
+            {sortedRegularTasks.length})
+          </motion.button>
 
-            <AnimatePresence>
-              {!collapsedSections.tasks && (
+          <AnimatePresence>
+            {!collapsedSections.tasks && (
+              <motion.div
+                variants={sectionVariants}
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+                className="overflow-hidden"
+              >
                 <motion.div
-                  variants={sectionVariants}
+                  className=""
+                  variants={containerVariants}
                   initial="hidden"
                   animate="visible"
                   exit="exit"
-                  className="overflow-hidden"
                 >
-                  <motion.div
-                    className=""
-                    variants={containerVariants}
-                    initial="hidden"
-                    animate="visible"
-                    exit="exit"
-                  >
+                  <AnimatePresence>
                     {sortedRegularTasks.map((task, index) => (
                       <TaskItem
                         key={task.id}
@@ -483,25 +495,24 @@ export function TaskList({
                         yearlyGoals={yearlyGoals}
                       />
                     ))}
-                  </motion.div>
+                  </AnimatePresence>
                 </motion.div>
-              )}
-            </AnimatePresence>
-          </motion.div>
-        )}
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-        {!isBacklog && tasks.length === 0 && (
-          <motion.div
-            key="no-tasks-message"
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -15 }}
-            transition={{ duration: 0.3 }}
-            className="text-center py-12 text-primary/60 font-bold"
-          >
-            <p>No tasks yet. Add one to get started!</p>
-          </motion.div>
-        )}
+          {sortedRegularTasks.length === 0 && (
+            <motion.div
+              key="no-regular-tasks-message"
+              className="text-center py-8 text-muted-foreground"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <p className="text-sm">今天还没有任务，添加一个开始吧</p>
+            </motion.div>
+          )}
+        </motion.div>
           </>
         )}
       </AnimatePresence>
@@ -561,6 +572,9 @@ function TaskItem({
   return (
     <>
       <motion.div
+        initial="hidden"
+        animate="visible"
+        exit="exit"
         variants={variants}
         layout
         className={`group relative border-t border-dashed cursor-pointer border-primary/50 dark:border-primary-700 select-none overflow-hidden ${

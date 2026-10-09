@@ -32,7 +32,6 @@ import {
   applyTaskRows as applyTaskRowsLocal,
   applySettingsRow as applySettingsRowLocal,
 } from "@/lib/supabase-sync";
-import "@/lib/debug"; // 导入调试工具
 
 export default function Home() {
   // 获取认证状态
@@ -201,7 +200,6 @@ export default function Home() {
         });
 
         // ⭐ 第一步：立即从 localStorage 读取并显示数据（同步，瞬间完成）
-        console.log('⚡ Loading local data immediately...');
         const loadLocalData = () => {
           const localDarkMode = dataStorage.getLocalData('darkMode');
           const localTheme = dataStorage.getLocalData('theme');
@@ -229,11 +227,9 @@ export default function Home() {
 
         // 标记数据已加载，允许用户操作
         setIsDataLoaded(true);
-        console.log('✅ Local data loaded, UI ready');
 
         // ⚠️ 修复：删除这里的服务器同步逻辑，避免与第二个 useEffect 冲突
         // 服务器同步由第二个 useEffect 统一处理（监听 user, authenticated 变化）
-        console.log('📍 Server sync will be handled by user authentication useEffect');
       } catch (error) {
         console.error('❌ Data loading failed:', error);
         // 即使失败也要允许备份，防止应用卡住
@@ -366,7 +362,6 @@ export default function Home() {
     // ⭐ 认证状态还在加载时，不要执行任何操作
     // 否则会错误地将 _current_user_id 设为 'anonymous'
     if (authLoading) {
-      console.log('⏳ Auth still loading, skipping user change handling...');
       return;
     }
 
@@ -384,7 +379,6 @@ export default function Home() {
       const userSwitched = dataStorage.checkUserSwitch();
 
       if (userSwitched) {
-        console.log('🔄 User switched, clearing local data...');
         dataStorage.clearAllData();
         setDailyTasks({});
         setBacklogTasks([]);
@@ -398,7 +392,6 @@ export default function Home() {
       dataStorage.updateCurrentUserId();
 
       if (!authenticated || !user) {
-        console.log('⏳ User or auth not ready / anonymous, skip remote pull');
         return;
       }
 
@@ -445,14 +438,12 @@ export default function Home() {
 
   // 处理匿名使用风险提醒 - 用户点击"我知道了"
   const handleDismissAnonymousWarning = () => {
-    console.log('✓ User dismissed anonymous warning');
     dataStorage.markAnonymousWarningSeen();
     setShowAnonymousWarning(false);
   };
 
   // 处理匿名使用风险提醒 - 用户点击"立即登录/注册"
   const handleOpenSettingsFromWarning = () => {
-    console.log('→ User wants to login from warning');
     dataStorage.markAnonymousWarningSeen();
     setShowAnonymousWarning(false);
     setShowSettings(true); // 打开设置页面，用户可以在那里登录
@@ -598,7 +589,6 @@ export default function Home() {
       
       // ⭐ 检查是否应该显示匿名使用风险提醒
       if (dataStorage.shouldShowAnonymousWarning()) {
-        console.log('⚠️  Should show anonymous warning');
         setShowAnonymousWarning(true);
       }
     }
@@ -616,7 +606,6 @@ export default function Home() {
       
       // ⭐ 检查是否应该显示匿名使用风险提醒
       if (dataStorage.shouldShowAnonymousWarning()) {
-        console.log('⚠️  Should show anonymous warning');
         setShowAnonymousWarning(true);
       }
     }
@@ -628,7 +617,6 @@ export default function Home() {
       
       // ⭐ 检查是否应该显示匿名使用风险提醒
       if (dataStorage.shouldShowAnonymousWarning()) {
-        console.log('⚠️  Should show anonymous warning');
         setShowAnonymousWarning(true);
       }
     }
@@ -637,10 +625,9 @@ export default function Home() {
   useEffect(() => {
     if (isDataLoaded) {
       dataStorage.setLocalData("yearlyGoals", yearlyGoals);
-      
+
       // ⭐ 检查是否应该显示匿名使用风险提醒
       if (dataStorage.shouldShowAnonymousWarning()) {
-        console.log('⚠️  Should show anonymous warning');
         setShowAnonymousWarning(true);
       }
     }
@@ -652,7 +639,6 @@ export default function Home() {
       
       // ⭐ 检查是否应该显示匿名使用风险提醒
       if (dataStorage.shouldShowAnonymousWarning()) {
-        console.log('⚠️  Should show anonymous warning');
         setShowAnonymousWarning(true);
       }
     }
@@ -664,7 +650,6 @@ export default function Home() {
       
       // ⭐ 检查是否应该显示匿名使用风险提醒
       if (dataStorage.shouldShowAnonymousWarning()) {
-        console.log('⚠️  Should show anonymous warning');
         setShowAnonymousWarning(true);
       }
     }
@@ -811,7 +796,7 @@ export default function Home() {
   // Quarterly goal management functions
   const addQuarterlyGoal = (title, description, year, quarter, yearlyGoalId, weight, tagId) => {
     const newGoal = {
-      id: Date.now().toString(),
+      id: crypto.randomUUID(),
       title,
       description,
       year: parseInt(year),
@@ -866,7 +851,7 @@ export default function Home() {
   // Weekly goal management functions
   const addWeeklyGoal = (goalData) => {
     const newGoal = {
-      id: goalData.id || Date.now().toString(),
+      id: goalData.id || crypto.randomUUID(),
       title: goalData.title,
       description: goalData.description || "",
       year: parseInt(goalData.year),
@@ -1679,14 +1664,6 @@ export default function Home() {
       }),
     };
     
-    console.log('🔄 Moving task:', {
-      taskId,
-      title: task.title,
-      from: location,
-      to: destination,
-      resetProgress: options.resetProgress
-    });
-
     // ✅ 修复：预先计算新状态，确保原子性更新和备份
     let newDailyTasks = dailyTasks;
     let newBacklogTasks = backlogTasks;
@@ -1727,7 +1704,6 @@ export default function Home() {
     // 8. ✅ 单行 upsert 并立即 flush：任务移动只涉及这一条任务记录本身，
     // 不需要像旧版那样整表备份。dailyTasks 的 scheduledDate 是通过对象的 key 隐含的，
     // movedTask 本身不带这个字段，这里补上，否则远端的 scheduled_date 会被写成 null。
-    console.log('⚡ Queueing single-row mutation after moveTask');
     const movedTable = destination.type === 'backlog' ? 'backlogTasks' : 'dailyTasks';
     const movedTaskPayload = destination.type === 'backlog'
       ? movedTask
@@ -1773,8 +1749,6 @@ export default function Home() {
 
       const keepLocation = sortedLocations[0];
       const removeLocations = sortedLocations.slice(1);
-
-      console.log(`🔧 Task ${taskId} (${locations[0].title}): 保留 ${keepLocation.type}${keepLocation.dateString || ''}, 删除 ${removeLocations.length} 个副本`);
 
       // 删除旧副本（仅本地展示层面，远端无需变化）
       removeLocations.forEach(loc => {
@@ -1979,7 +1953,7 @@ export default function Home() {
     const dateString = getDateString(taskDate);
     const currentTasks = dailyTasks[dateString] || [];
     const newTask = {
-      id: Date.now().toString(),
+      id: crypto.randomUUID(),
       title,
       completed: false,
       timeSpent: 0,
@@ -1997,7 +1971,7 @@ export default function Home() {
   // Backlog 任务管理函数
   const addBacklogTask = (title, tagId, priority, weeklyGoalId) => {
     const newTask = {
-      id: Date.now().toString(),
+      id: crypto.randomUUID(),
       title,
       completed: false,
       timeSpent: 0,
@@ -2205,7 +2179,7 @@ export default function Home() {
 
   const addCustomTag = (name, color) => {
     const newTag = {
-      id: Date.now().toString(),
+      id: crypto.randomUUID(),
       name,
       color,
     };
@@ -2477,6 +2451,7 @@ export default function Home() {
                 <div className="absolute top-0 left-0 h-full w-full overflow-auto hide-scroll">
                   <div className="px-0 mt-[4px]">
                     <TaskList
+                      key={getDateString(selectedDate)}
                       tasks={allTasks}
                       customTags={customTags}
                       onToggleTask={toggleTask}
@@ -2730,6 +2705,7 @@ export default function Home() {
                 <div className="absolute top-0 left-0 h-full w-full overflow-auto hide-scroll">
                   <div className="p-6 mt-[4px]">
                     <TaskList
+                      key={getDateString(selectedDate)}
                       tasks={allTasks}
                       customTags={customTags}
                       onToggleTask={toggleTask}
@@ -2765,6 +2741,7 @@ export default function Home() {
           <AnimatePresence>
             {showSettings && (
               <SettingsModal
+                key="settings-modal"
                 onClose={() => setShowSettings(false)}
                 darkMode={darkMode}
                 onToggleDarkMode={() => setDarkMode(!darkMode)}
@@ -2780,6 +2757,7 @@ export default function Home() {
 
             {showAddTask && (
               <AddTaskModal
+                key="add-task-modal"
                 onClose={() => setShowAddTask(false)}
                 onAddTask={addTask}
                 onAddBacklogTask={addBacklogTask}
@@ -2792,6 +2770,7 @@ export default function Home() {
 
             {showAddSubtask && parentTaskForSubtask && (
               <AddSubtaskModal
+                key="add-subtask-modal"
                 onClose={() => {
                   setShowAddSubtask(false);
                   setParentTaskForSubtask(null);
@@ -2807,6 +2786,7 @@ export default function Home() {
 
             {showTaskOptions && selectedTask && (
               <TaskOptionsModal
+                key="task-options-modal"
                 task={selectedTask}
                 customTags={customTags}
                 onClose={() => {
@@ -2833,6 +2813,7 @@ export default function Home() {
 
             {showHabits && (
               <HabitTracker
+                key="habit-tracker-modal"
                 habits={habits}
                 customTags={customTags}
                 yearlyGoals={yearlyGoals}
@@ -2844,6 +2825,7 @@ export default function Home() {
 
             {showYearlyGoals && (
               <YearlyGoalsTracker
+                key="yearly-goals-modal"
                 yearlyGoals={yearlyGoals}
                 quarterlyGoals={quarterlyGoals}
                 customTags={customTags}
@@ -2862,6 +2844,7 @@ export default function Home() {
 
             {showQuarterlyGoals && (
               <QuarterlyGoalsTracker
+                key="quarterly-goals-modal"
                 quarterlyGoals={quarterlyGoals}
                 yearlyGoals={yearlyGoals}
                 weeklyGoals={weeklyGoals}
@@ -2881,6 +2864,7 @@ export default function Home() {
 
             {showWeeklyGoals && (
               <WeeklyGoalsTracker
+                key="weekly-goals-modal"
                 weeklyGoals={weeklyGoals}
                 quarterlyGoals={quarterlyGoals}
                 customTags={customTags}
@@ -2894,11 +2878,12 @@ export default function Home() {
             )}
 
             {showTopicTree && (
-              <TechTopicTree onClose={() => setShowTopicTree(false)} />
+              <TechTopicTree key="topic-tree-modal" onClose={() => setShowTopicTree(false)} />
             )}
 
             {showTimer && (
               <TimerModal
+                key="timer-modal"
                 tasks={flatTaskList} // Use flattened list for timer
                 onClose={() => setShowTimer(false)}
                 onUpdateTaskTime={updateTaskTime}
@@ -2908,9 +2893,10 @@ export default function Home() {
             )}
 
             {/* Mobile More Menu */}
-            <AnimatePresence>
+            <AnimatePresence key="mobile-more-menu">
               {showMobileMenu && (
                 <motion.div
+                  key="mobile-more-menu-content"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
@@ -2983,7 +2969,7 @@ export default function Home() {
                         </div>
                         <div className="flex-1 text-left">
                           <div className="font-extrabold text-lg text-gray-900 dark:text-gray-100">Topic Tree</div>
-                          <div className="text-sm text-gray-500 dark:text-gray-400">技术课题拆解树</div>
+                          <div className="text-sm text-gray-500 dark:text-gray-400">课题拆解树</div>
                         </div>
                       </motion.button>
 
@@ -3021,7 +3007,7 @@ export default function Home() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+            className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
             onClick={() => setShowConfirmDialog(false)}
           >
             <motion.div

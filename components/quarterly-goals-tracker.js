@@ -106,9 +106,7 @@ export function QuarterlyGoalsTracker({
   const playCompleteSound = () => {
     if (completeAudioRef.current) {
       completeAudioRef.current.currentTime = 0;
-      completeAudioRef.current
-        .play()
-        .catch((e) => console.log("Complete sound play failed:", e));
+      completeAudioRef.current.play().catch(() => {});
     }
   };
 
@@ -146,7 +144,7 @@ export function QuarterlyGoalsTracker({
     if (!goalTitle.trim()) return;
     
     const goalData = {
-      id: editingGoal?.id || Date.now().toString(),
+      id: editingGoal?.id || crypto.randomUUID(),
       title: goalTitle.trim(),
       description: goalDescription.trim(),
       year: goalYear,
@@ -278,7 +276,7 @@ export function QuarterlyGoalsTracker({
 
     const doCopy = () => {
       const newGoals = sourceGoals.map((sourceGoal) => ({
-        id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+        id: crypto.randomUUID(),
         title: sourceGoal.title,
         description: sourceGoal.description || "",
         year: currentYear,
@@ -924,7 +922,7 @@ export function QuarterlyGoalsTracker({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+            className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
             onClick={() => setShowConfirmDialog(false)}
           >
             <motion.div
@@ -1003,6 +1001,8 @@ function QuarterlyGoalCard({
 
   return (
     <motion.div
+      initial="hidden"
+      animate="visible"
       variants={variants}
       className={`bg-accent/30 rounded-2xl p-4 ${
         goal.completed ? "opacity-60" : ""

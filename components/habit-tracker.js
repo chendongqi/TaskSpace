@@ -89,7 +89,7 @@ export function HabitTracker({
   const addHabit = () => {
     if (newHabitName.trim()) {
       const newHabit = {
-        id: Date.now().toString(),
+        id: crypto.randomUUID(),
         name: newHabitName.trim(),
         completedDates: [],
         tag: selectedTag || undefined,
@@ -368,6 +368,7 @@ export function HabitTracker({
             <AnimatePresence>
               {showAddForm ? (
                 <motion.div
+                  key="add-habit-form"
                   variants={formVariants}
                   initial="hidden"
                   animate="visible"
@@ -479,6 +480,7 @@ export function HabitTracker({
                   <AnimatePresence>
                     {showAddTag && (
                       <motion.div
+                        key="add-tag-form"
                         variants={formVariants}
                         initial="hidden"
                         animate="visible"
@@ -594,6 +596,9 @@ export function HabitTracker({
                 </motion.div>
               ) : (
                 <motion.div
+                  key="add-habit-button"
+                  initial="hidden"
+                  animate="visible"
                   variants={itemVariants}
                   whileHover={{ scale: 1.01 }}
                   whileTap={{ scale: 0.99 }}
@@ -615,7 +620,12 @@ export function HabitTracker({
 
             {/* Habit Navigation */}
             {showNavigation && habits.length > 0 && (
-              <motion.div variants={itemVariants} className="space-y-6">
+              <motion.div
+                initial="hidden"
+                animate="visible"
+                variants={itemVariants}
+                className="space-y-6"
+              >
                 {/* Habit Tabs */}
                 <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800/80 rounded-xl border-2 border-gray-200 dark:border-gray-700">
                   <motion.div
