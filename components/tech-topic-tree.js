@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { useAuth, useSupabaseClient } from "@wonder-lab/auth-sdk";
-import { X, ArrowLeft, GitBranch } from "lucide-react";
+import { X, ArrowLeft, GitBranch, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SiblingList } from "@/components/ui/tree-node";
@@ -92,6 +92,10 @@ export function TechTopicTree({ onClose }) {
   const [collapsedIds, setCollapsedIds] = useState(() => new Set());
   const [showNewTopicInput, setShowNewTopicInput] = useState(false);
   const [newTopicTitle, setNewTopicTitle] = useState("");
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [confirmAction, setConfirmAction] = useState(null);
+  const [confirmMessage, setConfirmMessage] = useState("");
+  const [confirmTitle, setConfirmTitle] = useState("");
 
   const userId = user?.id;
 
@@ -280,29 +284,58 @@ export function TechTopicTree({ onClose }) {
     await handleAddChild(activeTopic.root.id);
   };
 
-  const handleDeleteNode = async (id) => {
-    if (!activeTopicRootId) return;
-    const rowsInTree = allRows.filter((r) => r.topic_root_id === activeTopicRootId);
-    try {
-      const deletedIds = await deleteNodeAndDescendants(supabase, rowsInTree, id);
-      refreshRowsLocally((prev) => prev.filter((r) => !deletedIds.includes(r.id)));
-      toast.success("已删除");
-    } catch (err) {
-      console.error("删除节点失败:", err);
-      toast.error("删除节点失败");
-    }
+  const showConfirm = (title, message, onConfirm) => {
+    setConfirmTitle(title);
+    setConfirmMessage(message);
+    setConfirmAction(() => onConfirm);
+    setShowConfirmDialog(true);
   };
 
-  const handleDeleteTopic = async (rootId) => {
-    if (!userId) return;
-    try {
-      await deleteTopicRoot(supabase, userId, rootId);
-      refreshRowsLocally((prev) => prev.filter((r) => r.topic_root_id !== rootId));
-      toast.success("课题已删除");
-    } catch (err) {
-      console.error("删除课题失败:", err);
-      toast.error("删除课题失败");
+  const handleConfirm = () => {
+    if (confirmAction) {
+      confirmAction();
     }
+    setShowConfirmDialog(false);
+    setConfirmAction(null);
+  };
+
+  const handleDeleteNode = (id) => {
+    if (!activeTopicRootId) return;
+    const rowsInTree = allRows.filter((r) => r.topic_root_id === activeTopicRootId);
+    const target = rowsInTree.find((r) => r.id === id);
+    showConfirm(
+      "删除节点",
+      `确定要删除「${target?.title || "该节点"}」吗？其所有子节点也会被一起删除，此操作无法撤销。`,
+      async () => {
+        try {
+          const deletedIds = await deleteNodeAndDescendants(supabase, rowsInTree, id);
+          refreshRowsLocally((prev) => prev.filter((r) => !deletedIds.includes(r.id)));
+          toast.success("已删除");
+        } catch (err) {
+          console.error("删除节点失败:", err);
+          toast.error("删除节点失败");
+        }
+      }
+    );
+  };
+
+  const handleDeleteTopic = (rootId) => {
+    if (!userId) return;
+    const topic = topicSummaries.find((t) => t.id === rootId);
+    showConfirm(
+      "删除课题",
+      `确定要删除课题「${topic?.title || "该课题"}」吗？其下所有节点都会被一起删除，此操作无法撤销。`,
+      async () => {
+        try {
+          await deleteTopicRoot(supabase, userId, rootId);
+          refreshRowsLocally((prev) => prev.filter((r) => r.topic_root_id !== rootId));
+          toast.success("课题已删除");
+        } catch (err) {
+          console.error("删除课题失败:", err);
+          toast.error("删除课题失败");
+        }
+      }
+    );
   };
 
   // ------------------- 动画 -------------------
@@ -400,6 +433,60 @@ export function TechTopicTree({ onClose }) {
           </div>
         </div>
       </motion.div>
+
+      {/* 删除确认对话框 */}
+      <AnimatePresence>
+        {showConfirmDialog && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4"
+            onClick={() => setShowConfirmDialog(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="bg-background rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-border"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-6">
+                <div className="flex items-start gap-4 mb-4">
+                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                    <AlertCircle className="h-5 w-5 text-primary" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-extrabold mb-1">
+                      {confirmTitle}
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      {confirmMessage}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex gap-3 mt-6">
+                  <Button
+                    onClick={() => setShowConfirmDialog(false)}
+                    variant="outline"
+                    className="flex-1 rounded-xl font-semibold h-11"
+                  >
+                    取消
+                  </Button>
+                  <Button
+                    onClick={handleConfirm}
+                    className="flex-1 rounded-xl font-semibold h-11"
+                  >
+                    确定
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 }

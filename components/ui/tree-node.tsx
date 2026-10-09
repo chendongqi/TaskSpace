@@ -146,8 +146,11 @@ export function TreeNode({
 
   const [showFields, setShowFields] = React.useState(false);
   const dependsOn = node.depends_on || [];
+  const dependencyTitles = dependsOn
+    .map((id) => nodeTitleById?.get(id))
+    .filter((title): title is string => !!title);
   const hasExtraFields =
-    !!node.assignee || !!node.planned_start || !!node.planned_end || dependsOn.length > 0 || !!node.comment;
+    !!node.assignee || !!node.planned_start || !!node.planned_end || dependencyTitles.length > 0 || !!node.comment;
 
   const handleTitleBlur = () => {
     const text = titleRef.current?.innerText.trim();
@@ -283,12 +286,15 @@ export function TreeNode({
               {formatDateRange(node.planned_start, node.planned_end)}
             </span>
           )}
-          {dependsOn.length > 0 && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-muted/60 px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
-              <Link2 className="h-3 w-3" />
-              依赖 {dependsOn.map((id) => nodeTitleById?.get(id) || "未知节点").join("、")}
+          {dependencyTitles.map((title, i) => (
+            <span
+              key={i}
+              className="inline-flex items-center gap-1 rounded-full bg-muted/60 px-2 py-0.5 text-[11px] font-semibold text-muted-foreground"
+            >
+              {i === 0 && <Link2 className="h-3 w-3" />}
+              {title}
             </span>
-          )}
+          ))}
           {node.comment && (
             <span className="inline-flex items-center gap-1 rounded-full bg-muted/60 px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
               <MessageSquare className="h-3 w-3" />
@@ -433,7 +439,13 @@ function SortableChild({
 } & Omit<TreeNodeProps, "node">) {
   const dragControls = useDragControls();
   return (
-    <Reorder.Item as="div" value={child} dragListener={false} dragControls={dragControls}>
+    <Reorder.Item
+      as="div"
+      value={child}
+      dragListener={false}
+      dragControls={dragControls}
+      layout="position"
+    >
       <TreeNode
         node={child}
         depth={depth}
